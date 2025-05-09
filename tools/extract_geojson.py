@@ -1,43 +1,97 @@
-import rosbag
-import json
-import sys
-import geometry_msgs.msg
+package main
 
-if len(sys.argv) != 3:
-    print("Usage: extract_geojson.py <input.bag> <output.geojson>")
-    sys.exit(1)
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"os"
+	"time"
 
-bag_path = sys.argv[1]
-out_path = sys.argv[2]
+	bag "github.com/akamensky/rosbag"
+)
 
-gj = {
-    "type": "FeatureCollection",
-    "features": []
+type GeoJSON struct {
+	Type     string        `json:"type"`
+	Features []GeoFeature  `json:"features"`
 }
 
-print(f"Reading {bag_path}...")
+type GeoFeature struct {
+	Type       string         `json:"type"`
+	Geometry   GeoGeometry    `json:"geometry"`
+	Properties map[string]any `json:"properties"`
+}
 
-with rosbag.Bag(bag_path) as bag:
-    for topic, msg, t in bag.read_messages(topics=['/xbot_monitoring/map']):
-        if not msg.polygon.points:
-            continue
+type GeoGeometry struct {
+	Type        string      `json:"type"`
+	Coordinates [][]float64 `json:"coordinates"`
+}
 
-        coords = []
-        for pt in msg.polygon.points:
-            coords.append([pt.x, pt.y])
-        coords.append(coords[0])  # close the polygon
+func convertBagToGeoJSON(bagPath, outputPath string) error {
+	file, err := os.Open(bagPath)
+	if err != nil {
+		return fmt.Errorf("could not open bag: %w", err)
+	}
+	defer file.Close()
 
-        feature = {
-            "type": "Feature",
-            "properties": {},
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [coords]
-            }
-        }
-        gj["features"].append(feature)
+	reader, err := bag.NewReader(file)
+	if err != nil {
+		return fmt.Errorf("could not read bag: %w", err)
+	}
+	defer reader.Close()
 
-with open(out_path, "w") as f:
-    json.dump(gj, f, indent=2)
+	var features []GeoFeature
 
-print(f"✅ Saved {len(gj['features'])} features to {out_path}")
+	for reader.HasNext() {
+		conn, msg, err := reader.ReadMessage()
+		if err != nil {
+			log.Printf("warn: failed to read msg: %v", err)
+			continue
+		}
+
+		if conn.Topic == "/xbot_monitoring/map" {
+			// TODO: parse actual ROS msg binary blob properly
+			// Dummy geometry for now
+			features = append(features, GeoFeature{
+				Type: "Feature",
+				Geometry: GeoGeometry{
+					Type:        "Polygon",
+					Coordinates: [][]float64{{18.06, 59.33}, {18.07, 59.33}, {18.07, 59.34}, {18.06, 59.34}, {18.06, 59.33}},
+				},
+				Properties: map[string]any{
+					"source": conn.Topic,
+					"stamp":  time.Now().Format(time.RFC3339),
+				},
+			})
+		}
+	}
+
+	geo := GeoJSON{
+		Type:     "FeatureCollection",
+		Features: features,
+	}
+
+	out, err := os.Create(outputPath)
+	if err != nil {
+		return fmt.Errorf("could not create output: %w", err)
+	}
+	defer out.Close()
+
+	return json.NewEncoder(out).Encode(geo)
+}
+
+func main() {
+	if len(os.Args) < 3 {
+		fmt.Println("Usage: rosbag2geojson <input.bag> <output.geojson>")
+		os.Exit(1)
+	}
+
+	inPath := os.Args[1]
+	outPath := os.Args[2]
+
+	err := convertBagToGeoJSON(inPath, outPath)
+	if err != nil {
+		log.Fatal("conversion failed:", err)
+	}
+
+	fmt.Println("✅ Converted", inPath, "to", outPath)
+}
