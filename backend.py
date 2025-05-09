@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify, send_from_directory
-import os
-import json
+import os, json
 
 app = Flask(__name__)
 
@@ -12,8 +11,7 @@ def load_geojson():
         with open(GEOJSON_PATH, "r") as f:
             data = json.load(f)
         return jsonify(data)
-    else:
-        return jsonify({"type": "FeatureCollection", "features": []})
+    return jsonify({"type": "FeatureCollection", "features": []})
 
 @app.route("/save", methods=["POST"])
 def save_geojson():
