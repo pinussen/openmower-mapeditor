@@ -1,5 +1,7 @@
+# backend.py
+
 from flask import Flask, request, jsonify, send_from_directory
-import os, json
+import os, json, subprocess
 
 app = Flask(__name__)
 
@@ -19,6 +21,18 @@ def save_geojson():
     with open(GEOJSON_PATH, "w") as f:
         json.dump(data, f, indent=2)
     return "Saved", 200
+
+@app.route("/extract", methods=["POST"])
+def extract():
+    try:
+        subprocess.run([
+            "/opt/openmower-mapeditor/tools/rosbag2geojson",
+            "/bag/map.bag",
+            GEOJSON_PATH
+        ], check=True)
+        return "Extracted", 200
+    except subprocess.CalledProcessError as e:
+        return f"Extraction failed: {e}", 500
 
 @app.route("/")
 def index():
