@@ -13,7 +13,7 @@ podman rm -f "$CONTAINER_NAME" || true
 rm -rf "$REPO_DIR"
 
 # Klona nytt
-git clone https://github.com/placeholder/openmower-mapeditor.git "$REPO_DIR"
+git clone https://github.com/pinussen/openmower-mapeditor.git "$REPO_DIR"
 cd "$REPO_DIR"
 
 # Bygg containern
