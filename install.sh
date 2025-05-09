@@ -6,7 +6,7 @@ SERVICE_NAME="mapeditor.service"
 
 # Klona repo om det inte finns
 if [ ! -d "$REPO_DIR" ]; then
-  git clone https://github.com/placeholder/openmower-mapeditor.git "$REPO_DIR"
+  git clone https://github.com/pinussen/openmower-mapeditor "$REPO_DIR"
 fi
 cd "$REPO_DIR"
 
