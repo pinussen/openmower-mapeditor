@@ -1,3 +1,3 @@
 module github.com/pinussen/rosbag2geojson
 
-go 1.20
+go 1.15
