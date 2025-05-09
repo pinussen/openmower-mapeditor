@@ -6,12 +6,12 @@ SERVICE_NAME="mapeditor.service"
 
 # Klona repo om det inte finns
 if [ ! -d "$REPO_DIR" ]; then
-  git clone https://github.com/pinussen/openmower-mapeditor "$REPO_DIR"
+  git clone https://github.com/placeholder/openmower-mapeditor.git "$REPO_DIR"
 fi
 cd "$REPO_DIR"
 
-# Bygg containern
-podman build -t openmower-mapeditor .
+# Bygg containern (med full bildreferens)
+podman build -t openmower-mapeditor --build-arg BASE_IMAGE=docker.io/library/python:3.11-slim .
 
 # Kopiera systemd-tjänstfil
 cp "$SERVICE_NAME" /etc/systemd/system/

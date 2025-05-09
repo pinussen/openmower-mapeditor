@@ -14,7 +14,8 @@ ExecStart=/usr/bin/podman run \
   --tty \
   --name openmower-mapeditor \
   --network=host \
-  --volume /boot/openmower/:/data \
+  --volume /opt/openmower/map.geojson:/data/map.geojson \
+  --volume /root/ros_home/.ros/map.bag:/bag/map.bag \
   localhost/openmower-mapeditor
 ExecStop=/usr/bin/podman stop --ignore --cidfile /run/container-mapeditor.ctr-id -t 10
 ExecStopPost=/usr/bin/podman rm --ignore --force --cidfile /run/container-mapeditor.ctr-id
