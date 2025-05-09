@@ -10,6 +10,7 @@ RUN pip install flask
 COPY backend.py /app/app.py
 COPY static/ /app/static/
 COPY tools/rosbag2geojson/rosbag2geojson /usr/local/bin/rosbag2geojson
+COPY tools/extract_geojson.py /opt/openmower-mapeditor/tools/extract_geojson.py
 
 
 # Create data directory
