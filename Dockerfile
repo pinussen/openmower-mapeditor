@@ -9,6 +9,8 @@ RUN pip install flask
 # Copy backend and frontend
 COPY backend.py /app/app.py
 COPY static/ /app/static/
+COPY tools/rosbag2geojson/rosbag2geojson /usr/local/bin/rosbag2geojson
+
 
 # Create data directory
 RUN mkdir /data
