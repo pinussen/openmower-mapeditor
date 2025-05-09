@@ -1,0 +1,24 @@
+[Unit]
+Description=OpenMower Map Editor Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Restart=always
+ExecStartPre=/bin/rm -f /run/container-mapeditor.pid /run/container-mapeditor.ctr-id
+ExecStart=/usr/bin/podman run \
+  --conmon-pidfile /run/container-mapeditor.pid \
+  --cidfile /run/container-mapeditor.ctr-id \
+  --replace \
+  --detach \
+  --tty \
+  --name openmower-mapeditor \
+  --network=host \
+  --volume /boot/openmower/:/data \
+  localhost/openmower-mapeditor
+ExecStop=/usr/bin/podman stop --ignore --cidfile /run/container-mapeditor.ctr-id -t 10
+ExecStopPost=/usr/bin/podman rm --ignore --force --cidfile /run/container-mapeditor.ctr-id
+PIDFile=/run/container-mapeditor.pid
+
+[Install]
+WantedBy=multi-user.target
