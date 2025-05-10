@@ -3,13 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
-	"strings"
+	"path/filepath"
 	"strconv"
-	"io/ioutil"
-    "path/filepath"
-
+	"strings"
 )
 
 type Feature struct {
@@ -28,30 +27,29 @@ type FeatureCollection struct {
 	Features []Feature `json:"features"`
 }
 
-func getDatumCoords(configPath string) (float64, float64, error) {
-	data, err := ioutil.ReadFile(configPath)
+func parseDatum(filePath string) (float64, float64) {
+	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		return 0, 0, err
+		log.Fatal("Failed to read mower config:", err)
 	}
-	lines := strings.Split(string(data), "\n")
-	var lat, lon float64
 
+	var lat, lon float64
+	lines := strings.Split(string(data), "\n")
 	for _, line := range lines {
 		if strings.HasPrefix(line, "export OM_DATUM_LAT=") {
-			val := strings.Trim(strings.TrimSpace(strings.Split(line, "=")[1]), `"`)
+			val := strings.Trim(strings.Split(line, "=")[1], "\"")
 			lat, _ = strconv.ParseFloat(val, 64)
 		}
 		if strings.HasPrefix(line, "export OM_DATUM_LONG=") {
-			val := strings.Trim(strings.TrimSpace(strings.Split(line, "=")[1]), `"`)
+			val := strings.Trim(strings.Split(line, "=")[1], "\"")
 			lon, _ = strconv.ParseFloat(val, 64)
 		}
 	}
 
-	return lat, lon, nil
+	return lat, lon
 }
 
 func createDummyFeature(lat, lon float64) Feature {
-	offset := 0.0005
 	return Feature{
 		Type: "Feature",
 		Properties: map[string]interface{}{
@@ -62,9 +60,9 @@ func createDummyFeature(lat, lon float64) Feature {
 			Coordinates: [][][]float64{
 				{
 					{lon, lat},
-					{lon + offset, lat},
-					{lon + offset, lat + offset},
-					{lon, lat + offset},
+					{lon + 0.001, lat},
+					{lon + 0.001, lat + 0.001},
+					{lon, lat + 0.001},
 					{lon, lat},
 				},
 			},
@@ -78,20 +76,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = os.MkdirAll(filepath.Dir(outputPath), 0755)
-	if err != nil {
-		log.Fatal("failed to create output directory:", err)
-	}
-	
 	bagPath := os.Args[1]
 	outputPath := os.Args[2]
-	configPath := "/boot/openmower/mower_config.txt"
 
-	lat, lon, err := getDatumCoords(configPath)
-	if err != nil {
-		log.Fatal("failed to read datum from config:", err)
-	}
+	lat, lon := parseDatum("/boot/openmower/mower_config.txt")
 
+	fmt.Println("➡️  Konverterar ROS-bag till GeoJSON...")
 	fmt.Println("Using datum:")
 	fmt.Println("  LAT:", lat)
 	fmt.Println("  LON:", lon)
@@ -99,6 +89,12 @@ func main() {
 	geo := FeatureCollection{
 		Type:     "FeatureCollection",
 		Features: []Feature{createDummyFeature(lat, lon)},
+	}
+
+	// Create output dir if missing
+	err := os.MkdirAll(filepath.Dir(outputPath), 0755)
+	if err != nil {
+		log.Fatal("failed to create output directory:", err)
 	}
 
 	outFile, err := os.Create(outputPath)
@@ -113,5 +109,5 @@ func main() {
 		log.Fatal("failed to encode GeoJSON:", err)
 	}
 
-	fmt.Println("✅ Converted", bagPath, "to", outputPath)
+	fmt.Println("✅ GeoJSON written to", outputPath)
 }
