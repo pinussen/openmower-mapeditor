@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"io/ioutil"
+
 )
 
 type Feature struct {
@@ -28,7 +30,7 @@ type FeatureCollection struct {
 }
 
 func readDatum(path string) (float64, float64, error) {
-	content, err := os.ReadFile(path)
+	content, err := ioutil.ReadFile(path)
 	if err != nil {
 		return 0, 0, err
 	}
