@@ -11,7 +11,7 @@ COPY backend.py /app/app.py
 COPY static/ /app/static/
 COPY tools/rosbag2geojson/rosbag2geojson /usr/local/bin/rosbag2geojson
 COPY tools/extract_geojson.py /opt/openmower-mapeditor/tools/extract_geojson.py
-
+COPY tools/extract_from_bag.py /opt/openmower-mapeditor/tools/extract_from_bag.py
 
 # Create data directory
 RUN mkdir /data
