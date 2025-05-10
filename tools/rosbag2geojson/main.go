@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 	"strconv"
+	"io/ioutil"
+
 )
 
 type Feature struct {
@@ -26,7 +28,7 @@ type FeatureCollection struct {
 }
 
 func getDatumCoords(configPath string) (float64, float64, error) {
-	data, err := os.ReadFile(configPath)
+	data, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		return 0, 0, err
 	}
