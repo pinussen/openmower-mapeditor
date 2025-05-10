@@ -57,6 +57,9 @@ func convertUTMToLatLon(x, y, datumLat, datumLon float64) (float64, float64) {
 func extractWorkingAreaFromBag(bagPath string) ([][]float64, error) {
 	cmd := exec.Command("rosbag", "play", bagPath, "--topic", "/map/working_area", "-r", "1", "--pause", "--quiet")
 	out, err := cmd.Output()
+	defer out.Close()
+	_, err = out.Write(jsonData) // eller vad du nu skriver
+
 	if err != nil {
 		return nil, err
 	}
