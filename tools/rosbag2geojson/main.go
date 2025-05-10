@@ -8,6 +8,7 @@ import (
 	"strings"
 	"strconv"
 	"io/ioutil"
+    "path/filepath"
 
 )
 
@@ -77,6 +78,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	err = os.MkdirAll(filepath.Dir(outputPath), 0755)
+	if err != nil {
+		log.Fatal("failed to create output directory:", err)
+	}
+	
 	bagPath := os.Args[1]
 	outputPath := os.Args[2]
 	configPath := "/boot/openmower/mower_config.txt"
