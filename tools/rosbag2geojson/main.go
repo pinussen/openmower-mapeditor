@@ -3,9 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -27,47 +27,41 @@ type FeatureCollection struct {
 	Features []Feature `json:"features"`
 }
 
-func parseDatum(filePath string) (float64, float64) {
-	data, err := ioutil.ReadFile(filePath)
+func readDatum(path string) (float64, float64, error) {
+	content, err := os.ReadFile(path)
 	if err != nil {
-		log.Fatal("Failed to read mower config:", err)
+		return 0, 0, err
 	}
-
 	var lat, lon float64
-	lines := strings.Split(string(data), "\n")
-	for _, line := range lines {
-		if strings.HasPrefix(line, "export OM_DATUM_LAT=") {
-			val := strings.Trim(strings.Split(line, "=")[1], "\"")
-			lat, _ = strconv.ParseFloat(val, 64)
+	for _, line := range strings.Split(string(content), "\n") {
+		if strings.Contains(line, "OM_DATUM_LAT") {
+			lat, _ = strconv.ParseFloat(strings.Split(strings.Split(line, "\"")[1], "\"")[0], 64)
 		}
-		if strings.HasPrefix(line, "export OM_DATUM_LONG=") {
-			val := strings.Trim(strings.Split(line, "=")[1], "\"")
-			lon, _ = strconv.ParseFloat(val, 64)
+		if strings.Contains(line, "OM_DATUM_LONG") {
+			lon, _ = strconv.ParseFloat(strings.Split(strings.Split(line, "\"")[1], "\"")[0], 64)
 		}
 	}
-
-	return lat, lon
+	return lat, lon, nil
 }
 
-func createDummyFeature(lat, lon float64) Feature {
-	return Feature{
-		Type: "Feature",
-		Properties: map[string]interface{}{
-			"id": "working_area",
-		},
-		Geometry: Geometry{
-			Type: "Polygon",
-			Coordinates: [][][]float64{
-				{
-					{lon, lat},
-					{lon + 0.001, lat},
-					{lon + 0.001, lat + 0.001},
-					{lon, lat + 0.001},
-					{lon, lat},
-				},
-			},
-		},
+func convertUTMToLatLon(x, y, datumLat, datumLon float64) (float64, float64) {
+	// En förenklad översättning – i verkligheten används en UTM-projektion
+	// Här antar vi 1:1 meter till decimalgrader (ungefärlig för små områden)
+	lat := datumLat + (y / 111000.0)
+	lon := datumLon + (x / (111000.0 * 0.6))
+	return lon, lat
+}
+
+func extractWorkingAreaFromBag(bagPath string) ([][]float64, error) {
+	cmd := exec.Command("rosbag", "play", bagPath, "--topic", "/map/working_area", "-r", "1", "--pause", "--quiet")
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, err
 	}
+	// 👇 OBS: Här behöver vi ROS/rosbag parser på riktigt – detta är placeholder
+	return [][]float64{
+		{0, 0}, {1, 0}, {1, 1}, {0, 1}, {0, 0},
+	}, nil
 }
 
 func main() {
@@ -75,29 +69,53 @@ func main() {
 		fmt.Println("Usage: rosbag2geojson <input.bag> <output.geojson>")
 		os.Exit(1)
 	}
-
-//	bagPath := os.Args[1]
-	outputPath := os.Args[2]
-
-	lat, lon := parseDatum("/boot/openmower/mower_config.txt")
+	bagPath := os.Args[1]
+	outPath := os.Args[2]
 
 	fmt.Println("➡️  Konverterar ROS-bag till GeoJSON...")
+
+	datumLat, datumLon, err := readDatum("/boot/openmower/mower_config.txt")
+	if err != nil {
+		log.Fatal("⚠️  Kunde inte läsa datum från mower_config.txt:", err)
+	}
+
 	fmt.Println("Using datum:")
-	fmt.Println("  LAT:", lat)
-	fmt.Println("  LON:", lon)
+	fmt.Println("  LAT:", datumLat)
+	fmt.Println("  LON:", datumLon)
+
+	pointsUTM, err := extractWorkingAreaFromBag(bagPath)
+	if err != nil {
+		log.Fatal("⚠️  Kunde inte extrahera working_area:", err)
+	}
+
+	var coordinates [][]float64
+	for _, p := range pointsUTM {
+		lon, lat := convertUTMToLatLon(p[0], p[1], datumLat, datumLon)
+		coordinates = append(coordinates, []float64{lon, lat})
+	}
 
 	geo := FeatureCollection{
-		Type:     "FeatureCollection",
-		Features: []Feature{createDummyFeature(lat, lon)},
+		Type: "FeatureCollection",
+		Features: []Feature{
+			{
+				Type: "Feature",
+				Properties: map[string]interface{}{
+					"id": "working_area",
+				},
+				Geometry: Geometry{
+					Type:        "Polygon",
+					Coordinates: [][][]float64{coordinates},
+				},
+			},
+		},
 	}
 
-	// Create output dir if missing
-	err := os.MkdirAll(filepath.Dir(outputPath), 0755)
+	err = os.MkdirAll(filepath.Dir(outPath), 0755)
 	if err != nil {
-		log.Fatal("failed to create output directory:", err)
+		log.Fatal("Kunde inte skapa katalog:", err)
 	}
 
-	outFile, err := os.Create(outputPath)
+	outFile, err := os.Create(outPath)
 	if err != nil {
 		log.Fatal("could not create output file:", err)
 	}
@@ -109,5 +127,5 @@ func main() {
 		log.Fatal("failed to encode GeoJSON:", err)
 	}
 
-	fmt.Println("✅ GeoJSON written to", outputPath)
+	fmt.Println("✅ GeoJSON saved to:", outPath)
 }
