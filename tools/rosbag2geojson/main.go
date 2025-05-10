@@ -76,7 +76,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	bagPath := os.Args[1]
+//	bagPath := os.Args[1]
 	outputPath := os.Args[2]
 
 	lat, lon := parseDatum("/boot/openmower/mower_config.txt")
