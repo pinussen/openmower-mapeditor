@@ -49,13 +49,12 @@
         body: JSON.stringify(geo)
       }).then(() => alert("Saved!"));
     }
-
     function extractGeo() {
       fetch('/extract', { method: 'POST' })
         .then(res => {
           if (!res.ok) throw new Error("Failed to extract");
           alert("GeoJSON extracted from .bag!");
-          location.reload();
+          setTimeout(() => location.reload(), 1000);
         })
         .catch(err => alert(err));
     }

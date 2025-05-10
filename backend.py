@@ -26,13 +26,14 @@ def save_geojson():
 def extract():
     try:
         subprocess.run([
-            "/opt/openmower-mapeditor/tools/rosbag2geojson",
-            "/bag/map.bag",
+            "rosbag2geojson",
+            "/data/map.bag",
             GEOJSON_PATH
         ], check=True)
         return "Extracted", 200
     except subprocess.CalledProcessError as e:
         return f"Extraction failed: {e}", 500
+
 
 @app.route("/")
 def index():
