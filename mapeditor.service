@@ -3,10 +3,11 @@ Description=OpenMower Map Editor Service
 After=network.target
 
 [Service]
-# Radera ev. befintlig container utan att felet bubbla upp
+# Radera ev tidigare container (ignorera fel)
 ExecStartPre=-/usr/bin/podman rm -f openmower-mapeditor
+# Se till att data-katalog finns på host
+ExecStartPre=/usr/bin/mkdir -p /opt/openmower-mapeditor/data
 
-# Kör containern i förgrunden (host network + volymer)
 ExecStart=/usr/bin/podman run \
   --name openmower-mapeditor \
   --rm \
@@ -15,15 +16,15 @@ ExecStart=/usr/bin/podman run \
   -v /opt/openmower-mapeditor/data:/data:Z \
   openmower-mapeditor:latest
 
-# Efter start, försök extrahera bag → geojson (ignorera fel)
+# Efter start, extrahera .bag → geojson
 ExecStartPost=-/usr/bin/podman exec openmower-mapeditor \
   rosbag2geojson /data/map.bag /data/map.geojson
 
-# Se till att containern städas upp på stopp
+# Städa upp vid stopp
 ExecStopPost=-/usr/bin/podman rm -f openmower-mapeditor
 
 Restart=on-failure
-RestartSec=5s
+RestartSec=5
 TimeoutStartSec=60
 
 [Install]
