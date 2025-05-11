@@ -22,6 +22,9 @@ go build -v -o rosbag2geojson
 cp rosbag2geojson /usr/local/bin/
 cd ../..
 
+# Ensure data dir exists
+mkdir -p "$REPO_DIR/data"
+
 # Extract if bag exists
 if [ -f /root/ros_home/.ros/map.bag ]; then
   echo "➡️  Konverterar ROS-bag till GeoJSON..."
