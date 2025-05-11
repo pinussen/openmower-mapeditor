@@ -24,14 +24,16 @@ def save_geojson():
 
 @app.route("/extract", methods=["POST"])
 def extract():
+    if not os.path.isfile(BAG_PATH):
+        abort(404, "Ingen map.bag hittades")
+    cmd = ["rosbag2geojson", BAG_PATH, GEOJSON_PATH]
     try:
-        subprocess.run([
-            "rosbag2geojson",
-            "/data/map.bag",
-            GEOJSON_PATH
-        ], check=True)
+        proc = subprocess.run(cmd, check=True, capture_output=True)
+        app.logger.info("stdout: %s", proc.stdout.decode())
+        app.logger.info("stderr: %s", proc.stderr.decode())
         return "Extracted", 200
     except subprocess.CalledProcessError as e:
+        app.logger.error("Extraction failed: %s", e.stderr.decode())
         return f"Extraction failed: {e}", 500
 
 
