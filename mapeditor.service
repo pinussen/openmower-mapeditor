@@ -1,27 +1,26 @@
 [Unit]
 Description=OpenMower Map Editor Service
-After=network-online.target
-Wants=network-online.target
+After=network.target
 
 [Service]
 Restart=always
-ExecStartPre=/bin/rm -f /run/container-mapeditor.pid /run/container-mapeditor.ctr-id
+# 1) Kör containern, montera in .bag (ifall den finns) och data-dir
 ExecStart=/usr/bin/podman run \
-  --conmon-pidfile /run/container-mapeditor.pid \
-  --cidfile /run/container-mapeditor.ctr-id \
-  --replace \
-  --detach \
-  --tty \
   --name openmower-mapeditor \
-  --network=host \
-  --volume /opt/openmower-mapeditor/data:/data \
-  --volume /root/ros_home/.ros/map.bag:/bag/map.bag \
-  --volume /boot/openmower/mower_config.txt:/boot/openmower/mower_config.txt:ro \
-  localhost/openmower-mapeditor
+  --rm \
+  --network host \
+  -v /root/ros_home/.ros/map.bag:/data/map.bag:Z \
+  -v /opt/openmower-mapeditor/data:/data:Z \
+  -p 8088:8088 \
+  localhost/openmower-mapeditor:latest
 
-ExecStop=/usr/bin/podman stop --ignore --cidfile /run/container-mapeditor.ctr-id -t 10
-ExecStopPost=/usr/bin/podman rm --ignore --force --cidfile /run/container-mapeditor.ctr-id
-PIDFile=/run/container-mapeditor.pid
+# 2) Direkt efter start, gör konvertering i containern (får inte finnas före ExecStart)
+ExecStartPost=/usr/bin/podman exec openmower-mapeditor \
+  rosbag2geojson /data/map.bag /data/map.geojson || true
+
+# 3) Stop/rensa
+ExecStop=/usr/bin/podman stop openmower-mapeditor
+ExecStopPost=/usr/bin/podman rm -f openmower-mapeditor
 
 [Install]
 WantedBy=multi-user.target
