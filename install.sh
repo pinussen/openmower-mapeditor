@@ -5,16 +5,16 @@ REPO_DIR="/opt/openmower-mapeditor"
 SERVICE_NAME="mapeditor.service"
 CONTAINER_NAME="openmower-mapeditor"
 
-# Stop and clean
-systemctl stop "$SERVICE_NAME" || true
-podman rm -f "$CONTAINER_NAME" || true
+# 1) Stoppa service, ta bort eventuell container & gammal kod
+systemctl stop "$SERVICE_NAME"            || true
+podman rm -f "$CONTAINER_NAME"            || true
 rm -rf "$REPO_DIR"
 
-# Re-clone fresh
+# 2) Klona repot på nytt
 git clone https://github.com/pinussen/openmower-mapeditor.git "$REPO_DIR"
 cd "$REPO_DIR"
 
-# Rebuild Go binary with debug
+# 3) Bygg Go-konvertern och installera på hosten (för pre-extract)
 cd tools/rosbag2geojson
 rm -f rosbag2geojson
 go mod tidy
@@ -22,23 +22,24 @@ go build -v -o rosbag2geojson
 cp rosbag2geojson /usr/local/bin/
 cd ../..
 
-# Ensure data dir exists
-mkdir -p "$REPO_DIR/data"
+# 4) Förbered data-mapp
+mkdir -p data
 
-# Extract if bag exists
-if [ -f /root/ros_home/.ros/map.bag ]; then
-  echo "➡️  Konverterar ROS-bag till GeoJSON..."
-  /usr/local/bin/rosbag2geojson /root/ros_home/.ros/map.bag "$REPO_DIR/data/map.geojson" || true
+# 5) Kör en förkonvertering om .bag finns på hosten
+BAG_FILE="/root/ros_home/.ros/map.bag"
+if [ -f "$BAG_FILE" ]; then
+  echo "➡️  Konverterar ROS-bag till GeoJSON…"
+  rosbag2geojson "$BAG_FILE" data/map.geojson || true
 fi
 
-# Build container
+# 6) Bygg docker/podman-imagen
 podman build -t "$CONTAINER_NAME" .
 
-# Ensure data dir
-mkdir -p "$REPO_DIR/data"
-touch "$REPO_DIR/data/map.geojson"
+# 7) Säkerställ att det alltid finns en fil att serve:a
+mkdir -p data
+touch data/map.geojson
 
-# Install systemd service
+# 8) Installera & starta systemd-servicen
 cp "$SERVICE_NAME" /etc/systemd/system/
 systemctl daemon-reexec
 systemctl enable --now "$SERVICE_NAME"
