@@ -1,6 +1,6 @@
 # Dockerfile for OpenMower Map Editor
 # Byter till en officiell ROS-Noetic-basbild som redan har rosbag, msg-paket mm
-FROM osrf/ros:noetic-ros-base
+FROM docker.io/osrf/ros:noetic-ros-base
 
 # Se till att vi använder Python3
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
