@@ -5,18 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 )
-
-type Point struct {
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
-	Z float64 `json:"z"`
-}
 
 type Feature struct {
 	Type       string                 `json:"type"`
@@ -32,112 +26,111 @@ type FeatureCollection struct {
 	Features []Feature `json:"features"`
 }
 
+// readDatum hämtar OM_DATUM_LAT och OM_DATUM_LONG från configfilen
 func readDatum(path string) (float64, float64) {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		log.Fatal("could not read mower_config.txt:", err)
 	}
-
 	var lat, lon float64
-	lines := strings.Split(string(content), "\n")
-	for _, line := range lines {
-		if strings.Contains(line, "OM_DATUM_LAT") {
+	for _, line := range strings.Split(string(content), "\n") {
+		if strings.HasPrefix(line, "export OM_DATUM_LAT") {
 			parts := strings.Split(line, "=")
-			lat, _ = strconv.ParseFloat(strings.Trim(parts[1], "\""), 64)
+			lat, _ = strconv.ParseFloat(strings.Trim(parts[1], `"`), 64)
 		}
-		if strings.Contains(line, "OM_DATUM_LONG") {
+		if strings.HasPrefix(line, "export OM_DATUM_LONG") {
 			parts := strings.Split(line, "=")
-			lon, _ = strconv.ParseFloat(strings.Trim(parts[1], "\""), 64)
+			lon, _ = strconv.ParseFloat(strings.Trim(parts[1], `"`), 64)
 		}
 	}
-
 	return lat, lon
 }
 
+// localToWGS konverterar lokala x,y (meter) till lon,lat
 func localToWGS(x, y, datumLat, datumLon float64) (float64, float64) {
 	lat := datumLat + y/111111.0
-	lon := datumLon + x/(111111.0 * math.Cos(datumLat*math.Pi/180.0))
+	lon := datumLon + x/(111111.0*math.Cos(datumLat*math.Pi/180.0))
 	return lon, lat
 }
 
+// parsePointsBlock läser block av ”x:…, y:…”-rader och returnerar ett ring (stängt polygon)
 func parsePointsBlock(lines []string, datumLat, datumLon float64) [][][]float64 {
-	var coords [][][]float64
 	var ring [][]float64
-
 	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "x:") {
-			parts := strings.Fields(line)
-			x, _ := strconv.ParseFloat(strings.TrimPrefix(parts[0], "x:"), 64)
-			y, _ := strconv.ParseFloat(strings.TrimPrefix(parts[1], "y:"), 64)
-			lon, lat := localToWGS(x, y, datumLat, datumLon)
-			ring = append(ring, []float64{lon, lat})
-		}
+		parts := strings.Fields(line)
+		x, _ := strconv.ParseFloat(strings.TrimPrefix(parts[0], "x:"), 64)
+		y, _ := strconv.ParseFloat(strings.TrimPrefix(parts[1], "y:"), 64)
+		lon, lat := localToWGS(x, y, datumLat, datumLon)
+		ring = append(ring, []float64{lon, lat})
 	}
-	if len(ring) > 0 {
-		// Ensure polygon is closed
-		if ring[0][0] != ring[len(ring)-1][0] || ring[0][1] != ring[len(ring)-1][1] {
-			ring = append(ring, ring[0])
-		}
-		coords = append(coords, ring)
+	// Stäng polygonen
+	if len(ring) > 0 && (ring[0][0] != ring[len(ring)-1][0] || ring[0][1] != ring[len(ring)-1][1]) {
+		ring = append(ring, ring[0])
 	}
-
-	return coords
+	return [][][]float64{ring}
 }
 
+// classifyZone ger rätt id-baserat på namnet
+func classifyZone(name string) string {
+	l := strings.ToLower(name)
+	if strings.Contains(l, "exclusion") {
+		return "exclusion_zone"
+	} else if strings.Contains(l, "navigation") || strings.Contains(l, "transport") {
+		return "transport_zone"
+	}
+	return "working_area"
+}
+
+// parseBagText extraherar MapArea från rosbag-info (yaml-utdata)
 func parseBagText(path string, datumLat, datumLon float64) FeatureCollection {
-	cmd := exec.Command("rosbag", "play", "--pause", path)
-	cmdOut := exec.Command("rosbag", "info", "--yaml", path)
-	out, err := cmdOut.Output()
+	// Kör rosbag info i YAML-format
+	cmd := exec.Command("rosbag", "info", "--yaml", path)
+	outBytes, err := cmd.Output()
 	if err != nil {
 		log.Fatal("rosbag info failed:", err)
 	}
+	scanner := bufio.NewScanner(strings.NewReader(string(outBytes)))
 
-	scanner := bufio.NewScanner(strings.NewReader(string(out)))
-	var currentType string
-	var polygonLines []string
 	var features []Feature
-	var counter = map[string]int{}
+	var currentName string
+	var collecting bool
+	var block []string
+	counter := map[string]int{}
 
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.HasPrefix(line, "name:") {
-			currentType = strings.Trim(strings.Split(line, ":")[1], " \"")
+			currentName = strings.Trim(strings.TrimPrefix(line, "name:"), ` "`)
 		}
 		if strings.Contains(line, "points:") {
-			polygonLines = nil
+			collecting = true
+			block = nil
+			continue
 		}
-		if strings.HasPrefix(line, "  - x:") {
-			polygonLines = append(polygonLines, strings.TrimSpace(line))
-		}
-		if len(polygonLines) > 0 && strings.TrimSpace(line) == "" {
-			coords := parsePointsBlock(polygonLines, datumLat, datumLon)
-			id := classifyZone(currentType)
-			counter[id]++
-			feature := Feature{
-				Type:       "Feature",
-				Properties: map[string]interface{}{"id": fmt.Sprintf("%s_%d", id, counter[id])},
+		if collecting {
+			lineTrim := strings.TrimSpace(line)
+			if strings.HasPrefix(lineTrim, "x:") {
+				block = append(block, lineTrim)
+				continue
 			}
-			feature.Geometry.Type = "Polygon"
-			feature.Geometry.Coordinates = coords
-			features = append(features, feature)
+			// sluta samla när vi når tom rad eller nytt objekt
+			if lineTrim == "" {
+				coords := parsePointsBlock(block, datumLat, datumLon)
+				zoneID := classifyZone(currentName)
+				counter[zoneID]++
+				f := Feature{
+					Type:       "Feature",
+					Properties: map[string]interface{}{"id": fmt.Sprintf("%s_%d", zoneID, counter[zoneID])},
+				}
+				f.Geometry.Type = "Polygon"
+				f.Geometry.Coordinates = coords
+				features = append(features, f)
+				collecting = false
+			}
 		}
 	}
 
-	return FeatureCollection{
-		Type:     "FeatureCollection",
-		Features: features,
-	}
-}
-
-func classifyZone(name string) string {
-	name = strings.ToLower(name)
-	if strings.Contains(name, "exclusion") {
-		return "exclusion_zone"
-	} else if strings.Contains(name, "navigation") || strings.Contains(name, "transport") {
-		return "transport_zone"
-	}
-	return "working_area"
+	return FeatureCollection{Type: "FeatureCollection", Features: features}
 }
 
 func main() {
@@ -145,25 +138,24 @@ func main() {
 		fmt.Println("Usage: rosbag2geojson <input.bag> <output.geojson>")
 		os.Exit(1)
 	}
-
 	bagPath := os.Args[1]
 	outPath := os.Args[2]
+
 	datumLat, datumLon := readDatum("/boot/openmower/mower_config.txt")
+	log.Println("➡️  Konverterar ROS-bag till GeoJSON…")
+	log.Printf("   Datum LAT: %.6f  LON: %.6f\n", datumLat, datumLon)
 
-	log.Println("➡️  Konverterar ROS-bag till GeoJSON...")
-	log.Println("  LAT:", datumLat, "  LON:", datumLon)
+	geo := parseBagText(bagPath, datumLat, datumLon)
 
-	geojson := parseBagText(bagPath, datumLat, datumLon)
-
-	out, err := os.Create(outPath)
+	outFile, err := os.Create(outPath)
 	if err != nil {
 		log.Fatal("could not create output file:", err)
 	}
-	defer out.Close()
+	defer outFile.Close()
 
-	enc := json.NewEncoder(out)
+	enc := json.NewEncoder(outFile)
 	enc.SetIndent("", "  ")
-	if err := enc.Encode(geojson); err != nil {
+	if err := enc.Encode(geo); err != nil {
 		log.Fatal("failed to encode GeoJSON:", err)
 	}
 
