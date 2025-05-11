@@ -3,23 +3,23 @@ Description=OpenMower Map Editor Service
 After=network.target
 
 [Service]
-# Ta bort eventuell gammal container (ignorera fel)
+# Radera ev. befintlig container utan att felet bubbla upp
 ExecStartPre=-/usr/bin/podman rm -f openmower-mapeditor
 
-# Starta editorkontainern
+# Kör containern i förgrunden (host network + volymer)
 ExecStart=/usr/bin/podman run \
   --name openmower-mapeditor \
   --rm \
   --network host \
   -v /root/ros_home/.ros/map.bag:/data/map.bag:Z \
   -v /opt/openmower-mapeditor/data:/data:Z \
-  localhost/openmower-mapeditor:latest
+  openmower-mapeditor:latest
 
-# Efter uppstart: konvertera ev. bag till GeoJSON (ignorera fel)
+# Efter start, försök extrahera bag → geojson (ignorera fel)
 ExecStartPost=-/usr/bin/podman exec openmower-mapeditor \
   rosbag2geojson /data/map.bag /data/map.geojson
 
-# När service stoppas: ta bort containern om den blev kvar (ignorera fel)
+# Se till att containern städas upp på stopp
 ExecStopPost=-/usr/bin/podman rm -f openmower-mapeditor
 
 Restart=on-failure
