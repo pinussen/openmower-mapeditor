@@ -3,24 +3,27 @@ Description=OpenMower Map Editor Service
 After=network.target
 
 [Service]
-Restart=always
-# 1) Kör containern, montera in .bag (ifall den finns) och data-dir
+# Slå alltid av ev gammal
+ExecStartPre=/usr/bin/podman rm -f openmower-mapeditor || true
+
+# Kör i förgrunden (ingen --rm här, podman tar hand om det när processen dör)
 ExecStart=/usr/bin/podman run \
   --name openmower-mapeditor \
-  --rm \
   --network host \
   -v /root/ros_home/.ros/map.bag:/data/map.bag:Z \
   -v /opt/openmower-mapeditor/data:/data:Z \
   -p 8088:8088 \
   localhost/openmower-mapeditor:latest
 
-# 2) Direkt efter start, gör konvertering i containern (får inte finnas före ExecStart)
-ExecStartPost=/usr/bin/podman exec openmower-mapeditor \
-  rosbag2geojson /data/map.bag /data/map.geojson || true
+# Om containern dött – ta bort den
+ExecStop=/usr/bin/podman rm -f openmower-mapeditor
 
-# 3) Stop/rensa
-ExecStop=/usr/bin/podman stop openmower-mapeditor
-ExecStopPost=/usr/bin/podman rm -f openmower-mapeditor
+# Så att vi ser alla logs i journalen:
+StandardOutput=journal
+StandardError=journal
+
+Restart=always
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target

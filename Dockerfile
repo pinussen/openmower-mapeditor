@@ -1,25 +1,24 @@
-# 1) Börja från officiella ROS Noetic-ros-base (innehåller rosbag CLI)
-FROM docker.io/library/ros:noetic-ros-base
+# Dockerfile for OpenMower Map Editor
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# 2) Installera Flask
-RUN apt-get update && \
-    apt-get install -y python3-pip && \
-    pip3 install flask && \
-    rm -rf /var/lib/apt/lists/*
+# Flask + ev. fler dependencies
+RUN pip install flask
 
-# 3) Kopiera din backend/frontend
+# Kopiera koden
 COPY backend.py    /app/app.py
 COPY static/       /app/static/
-
-# 4) Kopiera din Go-converter (bygger den via install.sh och lägger den i /usr/local/bin)
+# Go-binären som byggts på hosten
 COPY tools/rosbag2geojson/rosbag2geojson /usr/local/bin/rosbag2geojson
 
-# 5) Se till att HTTP-serven sparar i /data
+# Vårt entrypoint
+COPY entrypoint.sh /app/entrypoint.sh
+
+# Dir där bag + output monteras
 RUN mkdir /data
 VOLUME ["/data"]
 
 EXPOSE 8088
 
-CMD ["python3", "app.py"]
+ENTRYPOINT ["/app/entrypoint.sh"]
