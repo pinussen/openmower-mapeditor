@@ -14,6 +14,7 @@ COPY tools/rosbag2geojson/rosbag2geojson /usr/local/bin/rosbag2geojson
 
 # Vårt entrypoint
 COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 # Dir där bag + output monteras
 RUN mkdir /data
