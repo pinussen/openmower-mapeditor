@@ -1,5 +1,6 @@
 # 1) Hämta officiell ROS Noetic-base (includes rosbag CLI, finns för arm64)
-FROM ros:noetic-ros-base
+FROM docker.io/library/ros:noetic-ros-base
+
 
 # 2) Installera Python3, pip och Flask
 RUN apt-get update \
