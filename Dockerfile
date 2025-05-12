@@ -1,10 +1,8 @@
-FROM docker.io/ros:noetic-ros-base
+FROM docker.io/ros:noetic-ros-desktop
 
-# 1. Installera rosbag-verktygen
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      ros-noetic-rosbag \
-      ros-noetic-rosbag-storage \
-    && rm -rf /var/lib/apt/lists/*
+# rosbag finns redan med i desktop-bilden
+SHELL ["/bin/bash", "-lc"]
+RUN echo "source /opt/ros/noetic/setup.bash" >> /etc/bash.bashrc
 
 # 2. Se till att ROS-miljön är sourcad i alla lager och vid runtime
 SHELL ["/bin/bash", "-lc"]
