@@ -1,29 +1,19 @@
-# 1) Hämta officiell ROS Noetic-base (includes rosbag CLI, finns för arm64)
-FROM docker.io/library/ros:noetic-ros-base
+FROM docker.io/ros:noetic-ros-base
 
+# 1. Installera rosbag-verktygen
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ros-noetic-rosbag \
+      ros-noetic-rosbag-storage \
+    && rm -rf /var/lib/apt/lists/*
 
-# 2) Installera Python3, pip och Flask
-RUN apt-get update \
- && apt-get install -y python3-pip \
- && pip3 install --no-cache-dir flask \
- && rm -rf /var/lib/apt/lists/*
+# 2. Se till att ROS-miljön är sourcad i alla lager och vid runtime
+SHELL ["/bin/bash", "-lc"]
+RUN echo "source /opt/ros/noetic/setup.bash" >> /etc/bash.bashrc
 
-# 3) Skapa app-mapp och kopiera in koden
-WORKDIR /app
-# Kopiera backend (flask-app), entrypoint och frontend
-COPY backend.py  app.py
-COPY entrypoint.sh  entrypoint.sh
-COPY static/    static/
-RUN chmod +x entrypoint.sh
+# ... övriga steg: kopiera din kod, installera Python-beroenden, exponera portar, osv.
+COPY . /opt/openmower-mapeditor
+WORKDIR /opt/openmower-mapeditor
+RUN pip install -r requirements.txt
 
-# 4) Kopiera Go-binaryn för rosbag2geojson
-COPY tools/rosbag2geojson/rosbag2geojson /usr/local/bin/rosbag2geojson
-
-# 5) Förbered data-volym
-RUN mkdir /data
-VOLUME ["/data"]
-
-# 6) Exponera port och startkommando
-EXPOSE 8088
-ENTRYPOINT ["./entrypoint.sh"]
-CMD ["python3", "app.py"]
+# Kör din app under en bash som sourcar ROS-setup
+CMD ["bash", "-lc", "rosbag info /data/yourbag.bag && python app.py"]
