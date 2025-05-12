@@ -1,17 +1,15 @@
-FROM docker.io/ros:noetic-ros-desktop
+FROM ghcr.io/cedbossneo/openmower-gui:master
 
-# rosbag finns redan med i desktop-bilden
+# Se till att ROS-miljön alltid är källad
 SHELL ["/bin/bash", "-lc"]
 RUN echo "source /opt/ros/noetic/setup.bash" >> /etc/bash.bashrc
 
-# 2. Se till att ROS-miljön är sourcad i alla lager och vid runtime
-SHELL ["/bin/bash", "-lc"]
-RUN echo "source /opt/ros/noetic/setup.bash" >> /etc/bash.bashrc
-
-# ... övriga steg: kopiera din kod, installera Python-beroenden, exponera portar, osv.
+# Kopiera in din mapeditor-kod
 COPY . /opt/openmower-mapeditor
 WORKDIR /opt/openmower-mapeditor
+
+# Installera Python-beroenden (om du har requirements.txt)
 RUN pip install -r requirements.txt
 
-# Kör din app under en bash som sourcar ROS-setup
+# Till sist: starta ditt kommando i en ROS-login-shell
 CMD ["bash", "-lc", "rosbag info /data/yourbag.bag && python app.py"]
