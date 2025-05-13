@@ -8,25 +8,15 @@ ExecStartPre=-/usr/bin/podman rm -f openmower-mapeditor
 # Se till att data-katalog finns på host
 ExecStartPre=/usr/bin/mkdir -p /opt/openmower-mapeditor/data
 
-ExecStart=/usr/bin/podman run \
+# Starta containern
+ExecStart=/usr/bin/podman run --rm \
   --name openmower-mapeditor \
-  --rm \
-  --network host \
-  -v /root/ros_home/.ros/map.bag:/data/map.bag:Z \
-  -v /opt/openmower-mapeditor/data:/data:Z \
-  -v /boot/openmower/mower_config.txt:/boot/openmower/mower_config.txt:Z \
-  openmower-mapeditor:latest
-
-# Efter start, extrahera .bag → geojson
-ExecStartPost=-/usr/bin/podman exec openmower-mapeditor \
-  rosbag2geojson /data/map.bag /data/map.geojson
+  -p 8088:8088 \
+  -v /opt/openmower-mapeditor/data:/data \
+  openmower-mapeditor
 
 # Städa upp vid stopp
-ExecStopPost=-/usr/bin/podman rm -f openmower-mapeditor
-
-Restart=on-failure
-RestartSec=5
-TimeoutStartSec=60
+ExecStop=/usr/bin/podman stop openmower-mapeditor
 
 [Install]
 WantedBy=multi-user.target
