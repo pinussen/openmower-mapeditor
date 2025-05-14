@@ -16,8 +16,15 @@ RUN apt-get update && apt-get install -y \
     software-properties-common \
     ca-certificates \
     wget \
-    golang \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Go 1.24
+RUN wget -q https://go.dev/dl/go1.24.linux-arm64.tar.gz && \
+    tar -C /usr/local -xzf go1.24.linux-arm64.tar.gz && \
+    rm go1.24.linux-arm64.tar.gz
+ENV PATH=$PATH:/usr/local/go/bin
+ENV GOPATH=/go
+ENV PATH=$PATH:/go/bin
 
 # Add ROS repository
 RUN wget -qO - https://raw.githubusercontent.com/ros/rosdistro/master/ros.key | apt-key add - && \
