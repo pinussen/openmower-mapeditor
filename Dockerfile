@@ -4,7 +4,7 @@ FROM ubuntu:20.04
 # Avoid interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install basic dependencies
+# Install basic dependencies first
 RUN apt-get update && apt-get install -y \
     curl \
     gnupg2 \
@@ -14,11 +14,13 @@ RUN apt-get update && apt-get install -y \
     git \
     build-essential \
     software-properties-common \
+    ca-certificates \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Add ROS repository and keys
-RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros/ubuntu $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/ros1.list > /dev/null
+# Add ROS repository (using wget instead of curl)
+RUN wget -qO - https://raw.githubusercontent.com/ros/rosdistro/master/ros.key | apt-key add - && \
+    echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -cs) main" > /etc/apt/sources.list.d/ros1.list
 
 # Install ROS Noetic (minimal installation first)
 RUN apt-get update && \

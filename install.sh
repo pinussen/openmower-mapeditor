@@ -24,9 +24,9 @@ GOARCH=arm64 go build -v -o rosbag2geojson
 cp rosbag2geojson /usr/local/bin/
 cd ../..
 
-# Build container
+# Build container with host network
 echo "🏗️ Building container..."
-podman build --platform linux/arm64 -t "$CONTAINER_NAME" .
+podman build --network=host --platform linux/arm64 -t "$CONTAINER_NAME" .
 
 # Install service
 echo "🔧 Installing service..."
