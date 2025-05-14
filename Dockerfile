@@ -13,21 +13,27 @@ RUN apt-get update && apt-get install -y \
     python3-flask \
     git \
     build-essential \
+    software-properties-common \
     && rm -rf /var/lib/apt/lists/*
 
-# Setup ROS repositories and keys properly
-RUN curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
-    echo "deb [arch=arm64 signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros/ubuntu $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/ros1.list > /dev/null && \
-    apt-key adv --keyserver 'hkp://keyserver.ubuntu.com:80' --recv-key C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654
+# Add ROS repository and keys
+RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros/ubuntu $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/ros1.list > /dev/null
 
-# Install ROS Noetic
-RUN apt-get update && apt-get install -y \
-    ros-noetic-ros-base \
-    ros-noetic-rosbag \
+# Install ROS Noetic (minimal installation first)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    ros-noetic-ros-core \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install additional ROS packages
+RUN apt-get update && \
+    apt-get install -y \
     python3-rosdep \
     python3-rosinstall \
     python3-rosinstall-generator \
     python3-wstool \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Initialize rosdep
