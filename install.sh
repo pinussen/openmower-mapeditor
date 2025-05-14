@@ -20,13 +20,13 @@ cd "$REPO_DIR"
 echo "🔨 Building rosbag2geojson tool..."
 cd tools/rosbag2geojson
 go mod tidy
-GOARCH=arm GOARM=7 go build -v -o rosbag2geojson
+GOARCH=arm64 go build -v -o rosbag2geojson
 cp rosbag2geojson /usr/local/bin/
 cd ../..
 
 # Build container
 echo "🏗️ Building container..."
-podman build --platform linux/arm/v7 -t "$CONTAINER_NAME" .
+podman build --platform linux/arm64 -t "$CONTAINER_NAME" .
 
 # Install service
 echo "🔧 Installing service..."

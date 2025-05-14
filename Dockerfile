@@ -1,4 +1,4 @@
-# Use Ubuntu 20.04 ARM base
+# Use Ubuntu 20.04 ARM64 base
 FROM ubuntu:20.04
 
 # Avoid interactive prompts
@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y \
 
 # Setup ROS repositories
 RUN curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros/ubuntu $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/ros1.list > /dev/null
+    echo "deb [arch=arm64] http://packages.ros.org/ros/ubuntu $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/ros1.list > /dev/null
 
 # Install ROS Noetic
 RUN apt-get update && apt-get install -y \
