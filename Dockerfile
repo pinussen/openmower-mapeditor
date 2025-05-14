@@ -16,9 +16,10 @@ RUN apt-get update && apt-get install -y \
     software-properties-common \
     ca-certificates \
     wget \
+    golang \
     && rm -rf /var/lib/apt/lists/*
 
-# Add ROS repository (using wget instead of curl)
+# Add ROS repository
 RUN wget -qO - https://raw.githubusercontent.com/ros/rosdistro/master/ros.key | apt-key add - && \
     echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -cs) main" > /etc/apt/sources.list.d/ros1.list
 
@@ -38,12 +39,16 @@ RUN apt-get update && \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Initialize rosdep
-RUN rosdep init && rosdep update
-
 # Copy application code
 COPY . /opt/openmower-mapeditor
 WORKDIR /opt/openmower-mapeditor
+
+# Build and install rosbag2geojson
+RUN cd tools/rosbag2geojson && \
+    go mod tidy && \
+    GOARCH=arm64 go build -v -o rosbag2geojson && \
+    cp rosbag2geojson /usr/local/bin/ && \
+    chmod +x /usr/local/bin/rosbag2geojson
 
 # Create data directory
 RUN mkdir -p /data
@@ -51,6 +56,8 @@ RUN mkdir -p /data
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV ROS_DISTRO=noetic
+ENV FLASK_APP=backend.py
+ENV FLASK_ENV=development
 
 # Source ROS environment
 RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc

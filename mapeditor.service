@@ -12,7 +12,9 @@ ExecStartPre=/usr/bin/mkdir -p /opt/openmower-mapeditor/data
 ExecStart=/usr/bin/podman run --rm \
   --name openmower-mapeditor \
   -p 8088:8088 \
+  -v /opt/openmower-mapeditor/static:/opt/openmower-mapeditor/static:ro \
   -v /opt/openmower-mapeditor/data:/data \
+  -v /root/ros_home/.ros:/data/ros:ro \
   openmower-mapeditor
 
 # Städa upp vid stopp

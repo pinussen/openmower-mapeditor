@@ -7,7 +7,7 @@ from flask import Flask, abort, jsonify, send_from_directory, request
 app = Flask(__name__, static_folder='static')
 
 # === Justera dessa om du mountar till någon annan sökväg ===
-BAG_PATH     = "/data/map.bag"
+BAG_PATH     = "/data/ros/map.bag"
 GEOJSON_PATH = "/data/map.geojson"
 
 @app.route("/")
