@@ -1,0 +1,12 @@
+version: '3'
+services:
+  mapeditor:
+    build: .
+    ports:
+      - "8088:8088"
+    volumes:
+      - ./data:/data
+      - .:/opt/openmower-mapeditor
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped 

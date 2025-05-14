@@ -1,11 +1,23 @@
-#!/bin/sh
+#!/bin/bash
 set -e
 
-# 1) Om det ligger en bag-fil monterad, konvertera direkt
-if [ -f /data/map.bag ]; then
-  echo "➡️  Konverterar ROS-bag till GeoJSON…"
-  rosbag2geojson /data/map.bag /data/map.geojson || true
+# Source ROS environment
+source /opt/ros/noetic/setup.bash
+
+# Check if the bag file exists
+if [ -f "/data/map.bag" ]; then
+    echo "📍 Found map.bag file"
+    rosbag info /data/map.bag
+    
+    # Convert to GeoJSON if the tool is available
+    if command -v rosbag2geojson &> /dev/null; then
+        echo "🔄 Converting ROS bag to GeoJSON..."
+        rosbag2geojson /data/map.bag /data/map.geojson || echo "⚠️  Conversion failed"
+    fi
+else
+    echo "ℹ️  No map.bag file found in /data/"
 fi
 
-# 2) Starta Flask-appen
-exec python3 /app/app.py
+# Start the Flask application
+echo "🚀 Starting Flask application..."
+exec python3 backend.py

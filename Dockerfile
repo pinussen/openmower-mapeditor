@@ -1,12 +1,28 @@
 # syntax=docker/dockerfile:1
 FROM osrf/ros:noetic-desktop-full
 
-# Kopiera in din mapeditor-kod
+# Install additional dependencies
+RUN apt-get update && apt-get install -y \
+    python3-pip \
+    python3-flask \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy application code
 COPY . /opt/openmower-mapeditor
 WORKDIR /opt/openmower-mapeditor
 
-# Lägg till ROS-miljön direkt i varje kommando
-RUN echo "source /opt/ros/noetic/setup.bash" >> /etc/bash.bashrc
+# Create data directory
+RUN mkdir -p /data
 
-# Starta applikationen
-CMD bash -c "source /opt/ros/noetic/setup.bash && rosbag info /data/yourbag.bag && python app.py"
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+
+# Source ROS environment
+RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
+
+# Make entrypoint executable
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Start application
+ENTRYPOINT ["/entrypoint.sh"]
