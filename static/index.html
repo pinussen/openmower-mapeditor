@@ -54,8 +54,7 @@
     async function extractGeo() {
       try {
         const res = await fetch('/extract', { 
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
+          method: 'POST'
         });
         
         if (!res.ok) {
