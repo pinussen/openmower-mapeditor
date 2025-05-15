@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -55,136 +54,109 @@ func localToWGS(x, y, datumLat, datumLon float64) (float64, float64) {
 	return lon, lat
 }
 
-// parsePointsBlock reads block of "x:..., y:..." lines and returns a ring (closed polygon)
-func parsePointsBlock(lines []string, datumLat, datumLon float64) [][][]float64 {
-	var ring [][]float64
-	for _, line := range lines {
-		parts := strings.Fields(line)
-		if len(parts) < 2 {
-			continue
-		}
-		x, _ := strconv.ParseFloat(strings.TrimPrefix(parts[0], "x:"), 64)
-		y, _ := strconv.ParseFloat(strings.TrimPrefix(parts[1], "y:"), 64)
-		lon, lat := localToWGS(x, y, datumLat, datumLon)
-		ring = append(ring, []float64{lon, lat})
-	}
-	// Close the polygon
-	if len(ring) > 0 && (ring[0][0] != ring[len(ring)-1][0] || ring[0][1] != ring[len(ring)-1][1]) {
-		ring = append(ring, ring[0])
-	}
-	return [][][]float64{ring}
-}
-
-// classifyZone ger rätt id-baserat på namnet
-func classifyZone(name string) string {
-	l := strings.ToLower(name)
-	if strings.Contains(l, "exclusion") {
-		return "exclusion_zone"
-	} else if strings.Contains(l, "navigation") || strings.Contains(l, "transport") {
-		return "transport_zone"
-	}
-	return "working_area"
-}
-
-// parseBagText extracts MapArea and Pose from rosbag-info (yaml output)
-func parseBagText(path string, datumLat, datumLon float64) FeatureCollection {
-	// Run rosbag info in YAML format
-	cmd := exec.Command("rosbag", "info", "--yaml", path)
-	outBytes, err := cmd.Output()
+// readPoseFromBag reads the docking point pose from the bag file
+func readPoseFromBag(bagPath string, datumLat, datumLon float64) *Feature {
+	cmd := exec.Command("rostopic", "echo", "-b", bagPath, "-n", "1", "/docking_point")
+	output, err := cmd.Output()
 	if err != nil {
-		log.Fatal("rosbag info failed:", err)
+		log.Printf("Warning: Failed to read docking point: %v", err)
+		return nil
 	}
-	log.Printf("🔍 Raw YAML output:\n%s", string(outBytes))
-	scanner := bufio.NewScanner(strings.NewReader(string(outBytes)))
 
-	var features []Feature
-	var currentTopic string
-	var collecting bool
-	var block []string
-	counter := map[string]int{}
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		log.Printf("📝 Processing line: %s", line)
-		
-		// Track which topic we're processing
-		if strings.Contains(line, "topics:") {
-			log.Printf("Found topics section")
-			collecting = false
-		} else if strings.Contains(line, "docking_point") {
-			log.Printf("Found docking_point topic")
-			currentTopic = "docking_point"
-			collecting = true
-			block = nil
-		} else if strings.Contains(line, "mowing_areas") {
-			log.Printf("Found mowing_areas topic")
-			currentTopic = "mowing_areas"
-			collecting = true
-			block = nil
+	log.Printf("Docking point output:\n%s", string(output))
+	
+	var x, y float64
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "x:") {
+			x, _ = strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(line, "x:")), 64)
 		}
+		if strings.HasPrefix(line, "y:") {
+			y, _ = strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(line, "y:")), 64)
+		}
+	}
 
-		if collecting {
-			lineTrim := strings.TrimSpace(line)
-			if strings.HasPrefix(lineTrim, "x:") || strings.HasPrefix(lineTrim, "y:") {
-				log.Printf("Collecting coordinate: %s", lineTrim)
-				block = append(block, lineTrim)
-			} else if len(block) > 0 && lineTrim == "" {
-				log.Printf("Processing block for topic %s with %d lines", currentTopic, len(block))
-				// Process collected points based on topic
-				if currentTopic == "docking_point" {
-					// For docking point, create a single point feature
-					if len(block) >= 2 {
-						x, _ := strconv.ParseFloat(strings.TrimPrefix(block[0], "x:"), 64)
-						y, _ := strconv.ParseFloat(strings.TrimPrefix(block[1], "y:"), 64)
-						lon, lat := localToWGS(x, y, datumLat, datumLon)
-						log.Printf("Creating docking point at lon: %f, lat: %f", lon, lat)
-						features = append(features, Feature{
-							Type: "Feature",
-							Properties: map[string]interface{}{
-								"id":   "docking_point",
-								"type": "docking_point",
-							},
-							Geometry: struct {
-								Type        string        `json:"type"`
-								Coordinates [][][]float64 `json:"coordinates"`
-							}{
-								Type:        "Point",
-								Coordinates: [][][]float64{{[]float64{lon, lat}}},
-							},
-						})
-					}
-				} else if currentTopic == "mowing_areas" {
-					// For mowing areas, create a polygon feature
-					coords := parsePointsBlock(block, datumLat, datumLon)
-					log.Printf("Created polygon with %d coordinates", len(coords[0]))
-					if len(coords[0]) > 2 { // Need at least 3 points for a valid polygon
-						zoneID := classifyZone(currentTopic)
-						counter[zoneID]++
-						features = append(features, Feature{
-							Type: "Feature",
-							Properties: map[string]interface{}{
-								"id":   fmt.Sprintf("%s_%d", zoneID, counter[zoneID]),
-								"type": zoneID,
-							},
-							Geometry: struct {
-								Type        string        `json:"type"`
-								Coordinates [][][]float64 `json:"coordinates"`
-							}{
-								Type:        "Polygon",
-								Coordinates: coords,
-							},
-						})
-					}
-				}
-				block = nil
+	lon, lat := localToWGS(x, y, datumLat, datumLon)
+	log.Printf("Creating docking point at lon: %f, lat: %f", lon, lat)
+	
+	return &Feature{
+		Type: "Feature",
+		Properties: map[string]interface{}{
+			"id":   "docking_point",
+			"type": "docking_point",
+		},
+		Geometry: struct {
+			Type        string        `json:"type"`
+			Coordinates [][][]float64 `json:"coordinates"`
+		}{
+			Type:        "Point",
+			Coordinates: [][][]float64{{[]float64{lon, lat}}},
+		},
+	}
+}
+
+// readMapAreaFromBag reads the mowing area from the bag file
+func readMapAreaFromBag(bagPath string, datumLat, datumLon float64) *Feature {
+	cmd := exec.Command("rostopic", "echo", "-b", bagPath, "-n", "1", "/mowing_areas")
+	output, err := cmd.Output()
+	if err != nil {
+		log.Printf("Warning: Failed to read mowing areas: %v", err)
+		return nil
+	}
+
+	log.Printf("Mowing areas output:\n%s", string(output))
+
+	var points [][]float64
+	var currentPoint []float64
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "x:") {
+			x, _ := strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(line, "x:")), 64)
+			currentPoint = []float64{x}
+		}
+		if strings.HasPrefix(line, "y:") {
+			y, _ := strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(line, "y:")), 64)
+			if len(currentPoint) == 1 {
+				currentPoint = append(currentPoint, y)
+				points = append(points, currentPoint)
 			}
 		}
 	}
 
-	log.Printf("✨ Created %d features", len(features))
-	return FeatureCollection{
-		Type:     "FeatureCollection",
-		Features: features,
+	if len(points) < 3 {
+		log.Printf("Warning: Not enough points for a polygon: %d", len(points))
+		return nil
+	}
+
+	// Convert all points to WGS84
+	var coordinates [][]float64
+	for _, p := range points {
+		lon, lat := localToWGS(p[0], p[1], datumLat, datumLon)
+		coordinates = append(coordinates, []float64{lon, lat})
+	}
+
+	// Close the polygon
+	if len(coordinates) > 0 {
+		coordinates = append(coordinates, coordinates[0])
+	}
+
+	log.Printf("Created polygon with %d coordinates", len(coordinates))
+
+	return &Feature{
+		Type: "Feature",
+		Properties: map[string]interface{}{
+			"id":   "working_area_1",
+			"type": "working_area",
+		},
+		Geometry: struct {
+			Type        string        `json:"type"`
+			Coordinates [][][]float64 `json:"coordinates"`
+		}{
+			Type:        "Polygon",
+			Coordinates: [][][]float64{coordinates},
+		},
 	}
 }
 
@@ -200,7 +172,22 @@ func main() {
 	log.Printf("➡️  Converting ROS bag to GeoJSON...")
 	log.Printf("   Datum LAT: %.6f  LON: %.6f\n", datumLat, datumLon)
 
-	geo := parseBagText(bagPath, datumLat, datumLon)
+	var features []Feature
+
+	// Read docking point
+	if dockingPoint := readPoseFromBag(bagPath, datumLat, datumLon); dockingPoint != nil {
+		features = append(features, *dockingPoint)
+	}
+
+	// Read mowing area
+	if mowingArea := readMapAreaFromBag(bagPath, datumLat, datumLon); mowingArea != nil {
+		features = append(features, *mowingArea)
+	}
+
+	geo := FeatureCollection{
+		Type:     "FeatureCollection",
+		Features: features,
+	}
 
 	outFile, err := os.Create(outPath)
 	if err != nil {
