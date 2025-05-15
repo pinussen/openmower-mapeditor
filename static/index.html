@@ -16,6 +16,20 @@
       background: white;
       padding: 10px;
       box-shadow: 0 0 5px rgba(0,0,0,0.3);
+      border-radius: 4px;
+    }
+    button {
+      padding: 8px 12px;
+      margin: 0 4px;
+      border: none;
+      border-radius: 4px;
+      background: #4CAF50;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover {
+      background: #45a049;
     }
   </style>
 </head>
@@ -34,12 +48,86 @@
 
     let geojsonLayer = null;
 
-    fetch('/load').then(res => res.json()).then(data => {
-      geojsonLayer = L.geoJSON(data, {
-        onEachFeature: (f, l) => l.bindPopup(f.properties?.name || 'Zone')
-      }).addTo(map);
-      map.fitBounds(geojsonLayer.getBounds());
-    });
+    // Style functions for different feature types
+    function getFeatureStyle(feature) {
+      const type = feature.properties?.type;
+      switch(type) {
+        case 'working_area':
+          return {
+            color: '#4CAF50',
+            weight: 2,
+            opacity: 0.8,
+            fillOpacity: 0.2
+          };
+        case 'exclusion_zone':
+          return {
+            color: '#f44336',
+            weight: 2,
+            opacity: 0.8,
+            fillOpacity: 0.2
+          };
+        case 'transport_zone':
+          return {
+            color: '#2196F3',
+            weight: 2,
+            opacity: 0.8,
+            fillOpacity: 0.2
+          };
+        default:
+          return {
+            color: '#9E9E9E',
+            weight: 2,
+            opacity: 0.8,
+            fillOpacity: 0.2
+          };
+      }
+    }
+
+    // Point marker style
+    function pointToLayer(feature, latlng) {
+      if (feature.properties?.type === 'docking_point') {
+        return L.marker(latlng, {
+          icon: L.divIcon({
+            html: '🔌',
+            className: 'docking-point',
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+          })
+        });
+      }
+      return L.circleMarker(latlng);
+    }
+
+    function loadAndDisplayGeoJSON() {
+      fetch('/load')
+        .then(res => res.json())
+        .then(data => {
+          if (geojsonLayer) {
+            map.removeLayer(geojsonLayer);
+          }
+          
+          geojsonLayer = L.geoJSON(data, {
+            style: getFeatureStyle,
+            pointToLayer: pointToLayer,
+            onEachFeature: (feature, layer) => {
+              const type = feature.properties?.type || 'unknown';
+              const id = feature.properties?.id || 'unnamed';
+              layer.bindPopup(`Type: ${type}<br>ID: ${id}`);
+            }
+          }).addTo(map);
+
+          // Zoom to features
+          if (geojsonLayer.getBounds().isValid()) {
+            map.fitBounds(geojsonLayer.getBounds());
+          }
+        })
+        .catch(err => {
+          console.error('Failed to load GeoJSON:', err);
+        });
+    }
+
+    // Load initial data
+    loadAndDisplayGeoJSON();
 
     function save() {
       const geo = geojsonLayer.toGeoJSON();
@@ -47,9 +135,13 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(geo)
-      }).then(() => alert("Saved!"));
+      })
+      .then(() => alert('Saved!'))
+      .catch(err => {
+        console.error('Save failed:', err);
+        alert('Failed to save: ' + err.message);
+      });
     }
-    
     
     async function extractGeo() {
       try {
@@ -62,9 +154,9 @@
           throw new Error(`Server error (${res.status}): ${errorText}`);
         }
         
-        const data = await res.json();
-        alert("GeoJSON extracted from .bag!");
-        location.reload();
+        await res.json();
+        // Reload the data after successful extraction
+        loadAndDisplayGeoJSON();
       } catch (err) {
         console.error('Extract error:', err);
         alert(`Error extracting GeoJSON: ${err.message}`);

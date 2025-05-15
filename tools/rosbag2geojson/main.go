@@ -11,13 +11,15 @@ import (
 	"strings"
 )
 
+type Geometry struct {
+	Type        string      `json:"type"`
+	Coordinates json.RawMessage `json:"coordinates"`
+}
+
 type Feature struct {
 	Type       string                 `json:"type"`
 	Properties map[string]interface{} `json:"properties"`
-	Geometry   struct {
-		Type        string        `json:"type"`
-		Coordinates [][][]float64 `json:"coordinates"`
-	} `json:"geometry"`
+	Geometry   Geometry               `json:"geometry"`
 }
 
 type FeatureCollection struct {
@@ -80,18 +82,16 @@ func readPoseFromBag(bagPath string, datumLat, datumLon float64) *Feature {
 	lon, lat := localToWGS(x, y, datumLat, datumLon)
 	log.Printf("Creating docking point at lon: %f, lat: %f", lon, lat)
 	
+	coords, _ := json.Marshal([]float64{lon, lat})
 	return &Feature{
 		Type: "Feature",
 		Properties: map[string]interface{}{
 			"id":   "docking_point",
 			"type": "docking_point",
 		},
-		Geometry: struct {
-			Type        string        `json:"type"`
-			Coordinates [][][]float64 `json:"coordinates"`
-		}{
+		Geometry: Geometry{
 			Type:        "Point",
-			Coordinates: [][][]float64{{[]float64{lon, lat}}},
+			Coordinates: coords,
 		},
 	}
 }
@@ -144,18 +144,16 @@ func readMapAreaFromBag(bagPath string, datumLat, datumLon float64) *Feature {
 
 	log.Printf("Created polygon with %d coordinates", len(coordinates))
 
+	coords, _ := json.Marshal([][][]float64{coordinates})
 	return &Feature{
 		Type: "Feature",
 		Properties: map[string]interface{}{
 			"id":   "working_area_1",
 			"type": "working_area",
 		},
-		Geometry: struct {
-			Type        string        `json:"type"`
-			Coordinates [][][]float64 `json:"coordinates"`
-		}{
+		Geometry: Geometry{
 			Type:        "Polygon",
-			Coordinates: [][][]float64{coordinates},
+			Coordinates: coords,
 		},
 	}
 }
