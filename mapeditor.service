@@ -11,7 +11,7 @@ ExecStartPre=/usr/bin/mkdir -p /opt/openmower-mapeditor/data
 # Starta containern
 ExecStart=/usr/bin/podman run --rm \
   --name openmower-mapeditor \
-  -p 8088:8088 \
+  --network host \
   -v /opt/openmower-mapeditor/static:/opt/openmower-mapeditor/static:ro \
   -v /opt/openmower-mapeditor/data:/data \
   -v /root/ros_home/.ros:/data/ros:ro \
