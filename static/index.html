@@ -49,14 +49,26 @@
         body: JSON.stringify(geo)
       }).then(() => alert("Saved!"));
     }
-    function extractGeo() {
-      fetch('/extract', { method: 'POST' })
-        .then(res => {
-          if (!res.ok) throw new Error("Failed to extract");
-          alert("GeoJSON extracted from .bag!");
-          setTimeout(() => location.reload(), 1000);
-        })
-        .catch(err => alert(err));
+    
+    async function extractGeo() {
+      try {
+        const res = await fetch('/extract', { 
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(`Server error (${res.status}): ${errorText}`);
+        }
+        
+        const data = await res.json();
+        alert("GeoJSON extracted from .bag!");
+        location.reload();
+      } catch (err) {
+        console.error('Extract error:', err);
+        alert(`Error extracting GeoJSON: ${err.message}`);
+      }
     }
   </script>
 </body>

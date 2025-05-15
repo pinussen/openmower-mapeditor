@@ -15,6 +15,7 @@ ExecStart=/usr/bin/podman run --rm \
   -v /opt/openmower-mapeditor/static:/opt/openmower-mapeditor/static:ro \
   -v /opt/openmower-mapeditor/data:/data \
   -v /root/ros_home/.ros:/data/ros:ro \
+  -v /boot/openmower:/boot/openmower:ro \
   openmower-mapeditor
 
 # Städa upp vid stopp
