@@ -64,8 +64,6 @@ def extract():
         abort(500, f"Extraction failed: {e.stderr}")
 
 if __name__ == "__main__":
-    # Enable debug mode for better error messages
-    app.debug = True
     logger.info("Starting Flask server on 0.0.0.0:8088")
-    # Try to bind to all interfaces explicitly
-    app.run(host="0.0.0.0", port=8088, threaded=True)
+    # Disable debug mode and threading for testing
+    app.run(host="0.0.0.0", port=8088, debug=False, threaded=False)
