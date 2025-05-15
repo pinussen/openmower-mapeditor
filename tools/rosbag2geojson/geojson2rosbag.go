@@ -7,6 +7,9 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
 func main() {
@@ -38,20 +41,17 @@ func main() {
 		datumLat, datumLon = readDatum("/boot/openmower/mower_config.txt")
 	}
 
-	// Create temporary files for the messages
-	dockingPointFile, err := os.CreateTemp("", "docking_point_*.yaml")
+	// Create temporary directory for message files
+	tmpDir, err := os.MkdirTemp("", "geojson2rosbag-*")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Failed to create temp dir:", err)
 	}
-	defer os.Remove(dockingPointFile.Name())
+	defer os.RemoveAll(tmpDir)
 
-	mowingAreaFile, err := os.CreateTemp("", "mowing_area_*.yaml")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer os.Remove(mowingAreaFile.Name())
+	// Process features and create message files
+	dockingPointFile := ""
+	mowingAreaFile := ""
 
-	// Process features
 	for _, feature := range fc.Features {
 		switch feature.Properties["type"] {
 		case "docking_point":
@@ -60,11 +60,23 @@ func main() {
 			if err := json.Unmarshal(feature.Geometry.Coordinates, &coords); err != nil {
 				log.Fatal("Failed to parse docking point coordinates:", err)
 			}
+			
 			// Convert to local coordinates
 			x, y := WGSToLocal(coords[0], coords[1], datumLat, datumLon)
 			
+			// Create docking point file
+			dockingPointFile = fmt.Sprintf("%s/docking_point.yaml", tmpDir)
+			f, err := os.Create(dockingPointFile)
+			if err != nil {
+				log.Fatal("Failed to create docking point file:", err)
+			}
+			
 			// Write docking point YAML
-			fmt.Fprintf(dockingPointFile, `position:
+			fmt.Fprintf(f, `header:
+  seq: 0
+  stamp: {secs: %d, nsecs: 0}
+  frame_id: "map"
+position:
   x: %f
   y: %f
   z: 0.0
@@ -73,7 +85,8 @@ orientation:
   y: 0.0
   z: 0.0
   w: 1.0
-`, x, y)
+`, time.Now().Unix(), x, y)
+			f.Close()
 
 		case "working_area":
 			// Parse Polygon coordinates
@@ -82,31 +95,78 @@ orientation:
 				log.Fatal("Failed to parse polygon coordinates:", err)
 			}
 			
+			// Create mowing area file
+			mowingAreaFile = fmt.Sprintf("%s/mowing_area.yaml", tmpDir)
+			f, err := os.Create(mowingAreaFile)
+			if err != nil {
+				log.Fatal("Failed to create mowing area file:", err)
+			}
+			
 			// Write mowing area YAML
-			fmt.Fprintf(mowingAreaFile, "points:\n")
+			fmt.Fprintf(f, `header:
+  seq: 0
+  stamp: {secs: %d, nsecs: 0}
+  frame_id: "map"
+points:
+`, time.Now().Unix())
+			
 			for _, point := range coords[0] { // First ring only
 				x, y := WGSToLocal(point[0], point[1], datumLat, datumLon)
-				fmt.Fprintf(mowingAreaFile, "- x: %f\n  y: %f\n", x, y)
+				fmt.Fprintf(f, "- {x: %f, y: %f}\n", x, y)
 			}
+			f.Close()
 		}
 	}
 
-	dockingPointFile.Close()
-	mowingAreaFile.Close()
+	// Start rosbag record with signal handling
+	recordCmd := exec.Command("rosbag", "record", "-O", *outFile, "/docking_point", "/mowing_areas")
+	
+	// Create a channel to receive OS signals
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// Create bag file using rostopic
-	log.Println("Creating bag file...")
-
-	// Create docking point message
-	cmd := exec.Command("rostopic", "pub", "-f", dockingPointFile.Name(), "-r", "1", "-p", "/docking_point", "geometry_msgs/Pose", "--once")
-	if err := cmd.Run(); err != nil {
-		log.Fatal("Failed to create docking point message:", err)
+	// Start the record process
+	if err := recordCmd.Start(); err != nil {
+		log.Fatal("Failed to start rosbag record:", err)
 	}
 
-	// Create mowing area message
-	cmd = exec.Command("rostopic", "pub", "-f", mowingAreaFile.Name(), "-r", "1", "-p", "/mowing_areas", "mower_map/MapArea", "--once")
-	if err := cmd.Run(); err != nil {
-		log.Fatal("Failed to create mowing area message:", err)
+	// Ensure cleanup on exit
+	defer func() {
+		if recordCmd.Process != nil {
+			recordCmd.Process.Signal(syscall.SIGINT)
+			recordCmd.Wait()
+		}
+	}()
+
+	// Wait for rosbag to initialize
+	time.Sleep(2 * time.Second)
+
+	// Publish messages
+	if dockingPointFile != "" {
+		cmd := exec.Command("rostopic", "pub", "-f", dockingPointFile, "/docking_point", "geometry_msgs/Pose", "-1")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			log.Fatal("Failed to publish docking point:", err)
+		}
+	}
+
+	if mowingAreaFile != "" {
+		cmd := exec.Command("rostopic", "pub", "-f", mowingAreaFile, "/mowing_areas", "openmower_msgs/MowingAreaList", "-1")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			log.Fatal("Failed to publish mowing area:", err)
+		}
+	}
+
+	// Wait a moment for messages to be recorded
+	time.Sleep(1 * time.Second)
+
+	// Clean shutdown
+	if recordCmd.Process != nil {
+		recordCmd.Process.Signal(syscall.SIGINT)
+		recordCmd.Wait()
 	}
 
 	log.Printf("✅ Created bag file: %s", *outFile)
