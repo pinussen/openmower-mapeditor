@@ -2,7 +2,12 @@
 import os
 import json
 import subprocess
+import logging
 from flask import Flask, abort, jsonify, send_from_directory, request
+
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder='static')
 
@@ -12,11 +17,13 @@ GEOJSON_PATH = "/data/map.geojson"
 
 @app.route("/")
 def root():
+    logger.debug("Serving root page")
     return app.send_static_file('index.html')
 
 @app.route("/load", methods=["GET"])
 def load():
     """Returnerar befintlig GeoJSON (om den finns)."""
+    logger.debug("Loading GeoJSON")
     if not os.path.isfile(GEOJSON_PATH):
         return jsonify({"type": "FeatureCollection", "features": []}), 200
     with open(GEOJSON_PATH) as f:
@@ -25,6 +32,7 @@ def load():
 @app.route("/save", methods=["POST"])
 def save():
     """Save the GeoJSON data."""
+    logger.debug("Saving GeoJSON")
     if not request.is_json:
         abort(400, "Expected JSON data")
     try:
@@ -38,6 +46,7 @@ def save():
 @app.route("/extract", methods=["POST"])
 def extract():
     """Kör rosbag2geojson på map.bag → map.geojson."""
+    logger.debug("Extracting from rosbag")
     if not os.path.isfile(BAG_PATH):
         abort(404, f"map.bag hittades inte på {BAG_PATH}")
     try:
@@ -57,4 +66,6 @@ def extract():
 if __name__ == "__main__":
     # Enable debug mode for better error messages
     app.debug = True
-    app.run(host="0.0.0.0", port=8088)
+    logger.info("Starting Flask server on 0.0.0.0:8088")
+    # Try to bind to all interfaces explicitly
+    app.run(host="0.0.0.0", port=8088, threaded=True)
