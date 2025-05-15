@@ -94,6 +94,7 @@ func parseBagText(path string, datumLat, datumLon float64) FeatureCollection {
 	if err != nil {
 		log.Fatal("rosbag info failed:", err)
 	}
+	log.Printf("🔍 Raw YAML output:\n%s", string(outBytes))
 	scanner := bufio.NewScanner(strings.NewReader(string(outBytes)))
 
 	var features []Feature
@@ -104,15 +105,19 @@ func parseBagText(path string, datumLat, datumLon float64) FeatureCollection {
 
 	for scanner.Scan() {
 		line := scanner.Text()
+		log.Printf("📝 Processing line: %s", line)
 		
 		// Track which topic we're processing
 		if strings.Contains(line, "topics:") {
+			log.Printf("Found topics section")
 			collecting = false
 		} else if strings.Contains(line, "docking_point") {
+			log.Printf("Found docking_point topic")
 			currentTopic = "docking_point"
 			collecting = true
 			block = nil
 		} else if strings.Contains(line, "mowing_areas") {
+			log.Printf("Found mowing_areas topic")
 			currentTopic = "mowing_areas"
 			collecting = true
 			block = nil
@@ -121,8 +126,10 @@ func parseBagText(path string, datumLat, datumLon float64) FeatureCollection {
 		if collecting {
 			lineTrim := strings.TrimSpace(line)
 			if strings.HasPrefix(lineTrim, "x:") || strings.HasPrefix(lineTrim, "y:") {
+				log.Printf("Collecting coordinate: %s", lineTrim)
 				block = append(block, lineTrim)
 			} else if len(block) > 0 && lineTrim == "" {
+				log.Printf("Processing block for topic %s with %d lines", currentTopic, len(block))
 				// Process collected points based on topic
 				if currentTopic == "docking_point" {
 					// For docking point, create a single point feature
@@ -130,6 +137,7 @@ func parseBagText(path string, datumLat, datumLon float64) FeatureCollection {
 						x, _ := strconv.ParseFloat(strings.TrimPrefix(block[0], "x:"), 64)
 						y, _ := strconv.ParseFloat(strings.TrimPrefix(block[1], "y:"), 64)
 						lon, lat := localToWGS(x, y, datumLat, datumLon)
+						log.Printf("Creating docking point at lon: %f, lat: %f", lon, lat)
 						features = append(features, Feature{
 							Type: "Feature",
 							Properties: map[string]interface{}{
@@ -148,6 +156,7 @@ func parseBagText(path string, datumLat, datumLon float64) FeatureCollection {
 				} else if currentTopic == "mowing_areas" {
 					// For mowing areas, create a polygon feature
 					coords := parsePointsBlock(block, datumLat, datumLon)
+					log.Printf("Created polygon with %d coordinates", len(coords[0]))
 					if len(coords[0]) > 2 { // Need at least 3 points for a valid polygon
 						zoneID := classifyZone(currentTopic)
 						counter[zoneID]++
@@ -172,6 +181,7 @@ func parseBagText(path string, datumLat, datumLon float64) FeatureCollection {
 		}
 	}
 
+	log.Printf("✨ Created %d features", len(features))
 	return FeatureCollection{
 		Type:     "FeatureCollection",
 		Features: features,
