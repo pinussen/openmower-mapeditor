@@ -13,7 +13,7 @@ app = Flask(__name__, static_folder='static')
 
 # === Justera dessa om du mountar till någon annan sökväg ===
 BAG_PATH     = "/data/ros/map.bag"
-GEOJSON_PATH = "/data/map.geojson"
+GEOJSON_PATH = "/opt/openmower-mapeditor/data/map.geojson"
 
 @app.route("/")
 def root():

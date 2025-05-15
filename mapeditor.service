@@ -12,8 +12,7 @@ ExecStartPre=/usr/bin/mkdir -p /opt/openmower-mapeditor/data
 ExecStart=/usr/bin/podman run --rm \
   --name openmower-mapeditor \
   --network host \
-  -v /opt/openmower-mapeditor/static:/opt/openmower-mapeditor/static:ro \
-  -v /opt/openmower-mapeditor/data:/data \
+  -v /opt/openmower-mapeditor:/opt/openmower-mapeditor \
   -v /root/ros_home/.ros:/data/ros:ro \
   -v /boot/openmower:/boot/openmower:ro \
   openmower-mapeditor
