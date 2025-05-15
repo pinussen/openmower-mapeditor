@@ -76,15 +76,16 @@ func main() {
   seq: 0
   stamp: {secs: %d, nsecs: 0}
   frame_id: "map"
-position:
-  x: %f
-  y: %f
-  z: 0.0
-orientation:
-  x: 0.0
-  y: 0.0
-  z: 0.0
-  w: 1.0
+pose:
+  position:
+    x: %f
+    y: %f
+    z: 0.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
 `, time.Now().Unix(), x, y)
 			f.Close()
 
@@ -143,11 +144,11 @@ points:
 
 	// Publish messages
 	if dockingPointFile != "" {
-		cmd := exec.Command("rostopic", "pub", "-f", dockingPointFile, "/docking_point", "geometry_msgs/Pose", "-1")
+		cmd := exec.Command("rostopic", "pub", "-f", dockingPointFile, "/docking_point", "geometry_msgs/PoseStamped", "-1")
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
-			log.Fatal("Failed to publish docking point:", err)
+			log.Fatal("Failed to create docking point message:", err)
 		}
 	}
 
