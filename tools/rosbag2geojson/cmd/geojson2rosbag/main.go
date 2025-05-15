@@ -173,7 +173,12 @@ points:
 		cmd := exec.Command("rostopic", "pub", "-f", dockingPointFile, "/docking_point", "geometry_msgs/PoseStamped", "-1")
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
+		log.Printf("Publishing docking point with command: %v", cmd.Args)
+		log.Printf("YAML file contents:\n%s", yamlContent)
 		if err := cmd.Run(); err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				log.Printf("rostopic pub stderr: %s", string(exitErr.Stderr))
+			}
 			log.Fatal("Failed to create docking point message:", err)
 		}
 	}
@@ -182,8 +187,11 @@ points:
 		cmd := exec.Command("rostopic", "pub", "-f", mowingAreaFile, "/mowing_areas", "openmower_msgs/MowingAreaList", "-1")
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
-		log.Printf("Publishing mowing area: %v", cmd.Args)
+		log.Printf("Publishing mowing area with command: %v", cmd.Args)
 		if err := cmd.Run(); err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				log.Printf("rostopic pub stderr: %s", string(exitErr.Stderr))
+			}
 			log.Fatal("Failed to publish mowing area:", err)
 		}
 	}
