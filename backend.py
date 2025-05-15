@@ -3,11 +3,15 @@ import os
 import json
 import subprocess
 import logging
+import socket
 from flask import Flask, abort, jsonify, send_from_directory, request
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+# Force IPv4
+socket.getaddrinfo = lambda *args: [(socket.AF_INET, socket.SOCK_STREAM, 6, '', (args[0], args[1]))]
 
 app = Flask(__name__, static_folder='static')
 
@@ -65,5 +69,5 @@ def extract():
 
 if __name__ == "__main__":
     logger.info("Starting Flask server on 0.0.0.0:8088")
-    # Disable debug mode and threading for testing
-    app.run(host="0.0.0.0", port=8088, debug=False, threaded=False)
+    # Try with explicit IPv4 binding
+    app.run(host="0.0.0.0", port=8088, debug=False)
