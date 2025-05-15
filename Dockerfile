@@ -19,9 +19,9 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Go 1.24
-RUN wget -q https://go.dev/dl/go1.24.linux-arm64.tar.gz && \
-    tar -C /usr/local -xzf go1.24.linux-arm64.tar.gz && \
-    rm go1.24.linux-arm64.tar.gz
+RUN wget -q https://go.dev/dl/go1.24.3.linux-arm64.tar.gz && \
+    tar -C /usr/local -xzf go1.24.3.linux-arm64.tar.gz && \
+    rm go1.24.3.linux-arm64.tar.gz
 ENV PATH=$PATH:/usr/local/go/bin
 ENV GOPATH=/go
 ENV PATH=$PATH:/go/bin
