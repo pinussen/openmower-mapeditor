@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"strings"
 )
 
 func main() {
