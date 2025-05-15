@@ -49,11 +49,27 @@ func readDatum(path string) (float64, float64) {
 	return lat, lon
 }
 
-// localToWGS converts local x,y (meters) to lon,lat
+// localToWGS converts local x,y (meters) to lon,lat using Haversine formula
 func localToWGS(x, y, datumLat, datumLon float64) (float64, float64) {
-	lat := datumLat + y/111111.0
-	lon := datumLon + x/(111111.0*math.Cos(datumLat*math.Pi/180.0))
-	return lon, lat
+	// Earth's radius in meters
+	const R = 6378137.0
+
+	// Convert datum to radians
+	lat1 := datumLat * math.Pi / 180.0
+	lon1 := datumLon * math.Pi / 180.0
+
+	// Calculate new latitude
+	// Using Haversine formula rearranged for latitude
+	lat2 := math.Asin(math.Sin(lat1)*math.Cos(y/R) + 
+			math.Cos(lat1)*math.Sin(y/R)*math.Cos(0))
+
+	// Calculate new longitude
+	// Using Haversine formula rearranged for longitude
+	lon2 := lon1 + math.Atan2(math.Sin(x/R)*math.Cos(lat1),
+			math.Cos(x/R) - math.Sin(lat1)*math.Sin(lat2))
+
+	// Convert back to degrees
+	return lon2 * 180.0 / math.Pi, lat2 * 180.0 / math.Pi
 }
 
 // readPoseFromBag reads the docking point pose from the bag file

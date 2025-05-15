@@ -49,10 +49,11 @@
       attribution: '© OpenStreetMap contributors'
     });
 
-    const satellite = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+    const satellite = L.tileLayer('https://ecn.t3.tiles.virtualearth.net/tiles/a{q}.jpeg?g=1', {
       maxZoom: 22,
-      attribution: '© Google',
-      subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+      attribution: '© Bing Maps',
+      subdomains: ['0', '1', '2', '3'],
+      tms: true
     });
 
     // Set satellite as default
