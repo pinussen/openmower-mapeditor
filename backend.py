@@ -68,6 +68,6 @@ def extract():
         abort(500, f"Extraction failed: {e.stderr}")
 
 if __name__ == "__main__":
-    logger.info("Starting Flask server on 0.0.0.0:8088")
+    logger.info("Starting Flask server on 0.0.0.0:8089")
     # Try with explicit IPv4 binding
-    app.run(host="0.0.0.0", port=8088, debug=False)
+    app.run(host="0.0.0.0", port=8089, debug=False)
