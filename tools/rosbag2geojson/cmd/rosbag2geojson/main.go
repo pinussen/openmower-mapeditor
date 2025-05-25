@@ -28,14 +28,25 @@ func readPoseFromBag(bagPath string, datumLat, datumLon float64) *rb.Feature {
 	log.Printf("Docking point output:\n%s", string(output))
 	
 	var x, y float64
+	inPosition := false
 	lines := strings.Split(string(output), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "x:") {
-			x, _ = strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(line, "x:")), 64)
+		if strings.HasPrefix(line, "position:") {
+			inPosition = true
+			continue
 		}
-		if strings.HasPrefix(line, "y:") {
-			y, _ = strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(line, "y:")), 64)
+		if strings.HasPrefix(line, "orientation:") {
+			inPosition = false
+			continue
+		}
+		if inPosition {
+			if strings.HasPrefix(line, "x:") {
+				x, _ = strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(line, "x:")), 64)
+			}
+			if strings.HasPrefix(line, "y:") {
+				y, _ = strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(line, "y:")), 64)
+			}
 		}
 	}
 
