@@ -78,46 +78,39 @@ func readMapAreaFromBag(bagPath string, datumLat, datumLon float64) *rb.Feature 
 	cmd := exec.Command("rostopic", "echo", "-b", bagPath, "-n", "1", "/mowing_areas")
 	output, err := cmd.Output()
 	if err != nil {
-		// If /mowing_areas fails, try /working_area
-		cmd = exec.Command("rostopic", "echo", "-b", bagPath, "-n", "1", "/working_area")
-		output, err = cmd.Output()
-		if err != nil {
-			log.Printf("Warning: Failed to read mowing/working areas: %v", err)
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				log.Printf("stderr: %s", string(exitErr.Stderr))
-			}
-			return nil
+		log.Printf("Warning: Failed to read mowing areas: %v", err)
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			log.Printf("stderr: %s", string(exitErr.Stderr))
 		}
+		return nil
 	}
 
 	log.Printf("Area output:\n%s", string(output))
 
 	var points [][]float64
 	var currentPoint []float64
-	lines := strings.Split(string(output), "\n")
 	inPoints := false
+	expectingPoint := false
+	lines := strings.Split(string(output), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		
-		// For MowingAreaList type, we need to check if we're in the points section
-		if strings.Contains(line, "points:") {
+		switch {
+		case strings.HasPrefix(line, "area:"):
+			continue
+		case strings.HasPrefix(line, "points:"):
 			inPoints = true
 			continue
-		}
-		
-		if strings.HasPrefix(line, "x:") {
-			if !inPoints {
-				continue
-			}
-			x, _ := strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(line, "x:")), 64)
-			currentPoint = []float64{x}
-		}
-		if strings.HasPrefix(line, "y:") {
-			if !inPoints {
-				continue
-			}
-			y, _ := strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(line, "y:")), 64)
-			if len(currentPoint) == 1 {
+		case inPoints && line == "-":
+			expectingPoint = true
+			currentPoint = nil
+			continue
+		case expectingPoint:
+			if strings.HasPrefix(line, "x:") {
+				x, _ := strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(line, "x:")), 64)
+				currentPoint = []float64{x}
+			} else if strings.HasPrefix(line, "y:") && len(currentPoint) == 1 {
+				y, _ := strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(line, "y:")), 64)
 				currentPoint = append(currentPoint, y)
 				points = append(points, currentPoint)
 				
