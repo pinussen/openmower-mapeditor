@@ -118,6 +118,9 @@ func readPoseFromBag(bagPath string, datumLat, datumLon float64) *Feature {
 	output, err := cmd.Output()
 	if err != nil {
 		log.Printf("Warning: Failed to get bag info: %v", err)
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			log.Printf("stderr: %s", string(exitErr.Stderr))
+		}
 		return nil
 	}
 
@@ -189,6 +192,9 @@ func readMapAreaFromBag(bagPath string, datumLat, datumLon float64) *Feature {
 	output, err := cmd.Output()
 	if err != nil {
 		log.Printf("Warning: Failed to get bag info: %v", err)
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			log.Printf("stderr: %s", string(exitErr.Stderr))
+		}
 		return nil
 	}
 
