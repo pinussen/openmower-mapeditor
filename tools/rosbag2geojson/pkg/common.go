@@ -1,4 +1,4 @@
-package rosbag2geojson
+package pkg
 
 import (
 	"encoding/json"

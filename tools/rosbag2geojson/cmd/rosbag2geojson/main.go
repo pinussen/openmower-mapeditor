@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	rb "../../pkg"
+	rb "github.com/pinussen/rosbag2geojson/pkg"
 )
 
 // readPoseFromBag reads the docking point pose from the bag file
