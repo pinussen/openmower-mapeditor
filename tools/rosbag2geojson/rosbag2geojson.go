@@ -122,14 +122,20 @@ func readPoseFromBag(bagPath string, datumLat, datumLon float64) *Feature {
 		return nil
 	}
 
+	log.Printf("Bag info output:\n%s", string(output))
+
 	// Check if it's PoseStamped or Pose
 	isPoseStamped := strings.Contains(string(output), "geometry_msgs/PoseStamped")
+	log.Printf("Message type detection - isPoseStamped: %v", isPoseStamped)
 	
 	// Read the message
 	cmd = exec.Command("rostopic", "echo", "-b", bagPath, "-n", "1", "/docking_point")
 	output, err = cmd.Output()
 	if err != nil {
 		log.Printf("Warning: Failed to read docking point: %v", err)
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			log.Printf("stderr: %s", string(exitErr.Stderr))
+		}
 		return nil
 	}
 
@@ -187,13 +193,19 @@ func readMapAreaFromBag(bagPath string, datumLat, datumLon float64) *Feature {
 		return nil
 	}
 
+	log.Printf("Bag info output:\n%s", string(output))
+
 	// Check message type
 	isMowingAreaList := strings.Contains(string(output), "openmower_msgs/MowingAreaList")
+	log.Printf("Message type detection - isMowingAreaList: %v", isMowingAreaList)
 	
 	cmd = exec.Command("rostopic", "echo", "-b", bagPath, "-n", "1", "/mowing_areas")
 	output, err = cmd.Output()
 	if err != nil {
 		log.Printf("Warning: Failed to read mowing areas: %v", err)
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			log.Printf("stderr: %s", string(exitErr.Stderr))
+		}
 		return nil
 	}
 
