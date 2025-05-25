@@ -114,8 +114,20 @@ func testRoundTrip(x, y float64, datumLat, datumLon float64) {
 
 // readPoseFromBag reads the docking point pose from the bag file
 func readPoseFromBag(bagPath string, datumLat, datumLon float64) *Feature {
-	cmd := exec.Command("rostopic", "echo", "-b", bagPath, "-n", "1", "/docking_point")
+	// First try to get message type
+	cmd := exec.Command("rosbag", "info", bagPath)
 	output, err := cmd.Output()
+	if err != nil {
+		log.Printf("Warning: Failed to get bag info: %v", err)
+		return nil
+	}
+
+	// Check if it's PoseStamped or Pose
+	isPoseStamped := strings.Contains(string(output), "geometry_msgs/PoseStamped")
+	
+	// Read the message
+	cmd = exec.Command("rostopic", "echo", "-b", bagPath, "-n", "1", "/docking_point")
+	output, err = cmd.Output()
 	if err != nil {
 		log.Printf("Warning: Failed to read docking point: %v", err)
 		return nil
@@ -128,9 +140,17 @@ func readPoseFromBag(bagPath string, datumLat, datumLon float64) *Feature {
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "x:") {
+			// For PoseStamped, we need to check if we're in the pose.position section
+			if isPoseStamped && !strings.Contains(string(output), "position:") {
+				continue
+			}
 			x, _ = strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(line, "x:")), 64)
 		}
 		if strings.HasPrefix(line, "y:") {
+			// For PoseStamped, we need to check if we're in the pose.position section
+			if isPoseStamped && !strings.Contains(string(output), "position:") {
+				continue
+			}
 			y, _ = strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(line, "y:")), 64)
 		}
 	}
@@ -159,8 +179,19 @@ func readPoseFromBag(bagPath string, datumLat, datumLon float64) *Feature {
 
 // readMapAreaFromBag reads the mowing area from the bag file
 func readMapAreaFromBag(bagPath string, datumLat, datumLon float64) *Feature {
-	cmd := exec.Command("rostopic", "echo", "-b", bagPath, "-n", "1", "/mowing_areas")
+	// First try to get message type
+	cmd := exec.Command("rosbag", "info", bagPath)
 	output, err := cmd.Output()
+	if err != nil {
+		log.Printf("Warning: Failed to get bag info: %v", err)
+		return nil
+	}
+
+	// Check message type
+	isMowingAreaList := strings.Contains(string(output), "openmower_msgs/MowingAreaList")
+	
+	cmd = exec.Command("rostopic", "echo", "-b", bagPath, "-n", "1", "/mowing_areas")
+	output, err = cmd.Output()
 	if err != nil {
 		log.Printf("Warning: Failed to read mowing areas: %v", err)
 		return nil
@@ -171,13 +202,27 @@ func readMapAreaFromBag(bagPath string, datumLat, datumLon float64) *Feature {
 	var points [][]float64
 	var currentPoint []float64
 	lines := strings.Split(string(output), "\n")
+	inPoints := false
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
+		
+		// For MowingAreaList type, we need to check if we're in the points section
+		if isMowingAreaList && strings.Contains(line, "points:") {
+			inPoints = true
+			continue
+		}
+		
 		if strings.HasPrefix(line, "x:") {
+			if isMowingAreaList && !inPoints {
+				continue
+			}
 			x, _ := strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(line, "x:")), 64)
 			currentPoint = []float64{x}
 		}
 		if strings.HasPrefix(line, "y:") {
+			if isMowingAreaList && !inPoints {
+				continue
+			}
 			y, _ := strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(line, "y:")), 64)
 			if len(currentPoint) == 1 {
 				currentPoint = append(currentPoint, y)
