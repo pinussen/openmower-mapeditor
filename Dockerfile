@@ -53,7 +53,7 @@ WORKDIR /opt/openmower-mapeditor
 # Build and install rosbag2geojson
 RUN cd tools/rosbag2geojson && \
     go mod tidy && \
-    GOARCH=arm64 go build -v -o rosbag2geojson && \
+    GOARCH=arm64 go build -v -o rosbag2geojson ./cmd/rosbag2geojson && \
     cp rosbag2geojson /usr/local/bin/ && \
     chmod +x /usr/local/bin/rosbag2geojson
 
