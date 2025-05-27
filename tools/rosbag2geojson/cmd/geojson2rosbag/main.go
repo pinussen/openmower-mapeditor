@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	rb "github.com/pinussen/rosbag2geojson"
+	rb "github.com/pinussen/rosbag2geojson/pkg"
 )
 
 func main() {
