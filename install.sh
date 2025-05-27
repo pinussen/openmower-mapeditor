@@ -16,13 +16,13 @@ echo "📥 Cloning repository..."
 git clone https://github.com/pinussen/openmower-mapeditor.git "$REPO_DIR"
 cd "$REPO_DIR"
 
-# Build Go tool
+# Build rosbag2geojson tool
 echo "🔨 Building rosbag2geojson tool..."
-cd tools/rosbag2geojson
-go mod tidy
-GOARCH=arm64 go build -v -o rosbag2geojson
-cp rosbag2geojson /usr/local/bin/
-cd ../..
+(
+	cd tools/rosbag2geojson/cmd/rosbag2geojson
+	GOARCH=arm64 go build -v -o rosbag2geojson
+	cp rosbag2geojson /usr/local/bin/
+)
 
 # Build container with host network
 echo "🏗️ Building container..."

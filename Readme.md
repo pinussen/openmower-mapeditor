@@ -40,7 +40,7 @@ POST /extract: Extract GeoJSON from a ROS bag file.
 ## Development
 
 ### Build rosbag2geojson
-cd tools/rosbag2geojson
+cd tools/rosbag2geojson/cmd/rosbag2geojson
 go build -o rosbag2geojson
 
 ### Run Backend Locally
