@@ -5,7 +5,10 @@ import subprocess
 import logging
 import socket
 from flask import Flask, abort, jsonify, send_from_directory, request
+from flask import Flask, request, jsonify
+import subprocess
 
+app = Flask(__name__)
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -67,6 +70,20 @@ def extract():
         app.logger.error("Extraction failed: %s", e.stderr)
         abort(500, f"Extraction failed: {e.stderr}")
 
+@app.route('/convert', methods=['POST'])
+def convert():
+    try:
+        # Här kan du anpassa sökvägarna till din geojson och bag-fil
+        input_geojson = "static/map.geojson"  # eller var din fil ligger
+        output_bag = "static/converted.bag"   # eller annan plats/namn
+
+        # Kör Go-programmet
+        result = subprocess.run([
+            "tools/rosbag2geojson/cmd/geojson2rosbag/geojson2rosbag",
+            "-in", input_geojson,
+            "-out", output_bag
+        ], capture_output=True, text=True)
+        
 if __name__ == "__main__":
     logger.info("Starting Flask server on 0.0.0.0:8089")
     # Try with explicit IPv4 binding
