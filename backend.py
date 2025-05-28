@@ -74,8 +74,8 @@ def extract():
 def convert():
     try:
         # Här kan du anpassa sökvägarna till din geojson och bag-fil
-        input_geojson = "static/map.geojson"  # eller var din fil ligger
-        output_bag = "static/converted.bag"   # eller annan plats/namn
+        input_geojson = "/data/map.geojson"  # eller var din fil ligger
+        output_bag = "data/converted.bag"   # eller annan plats/namn
 
         # Kör Go-programmet
         result = subprocess.run([
