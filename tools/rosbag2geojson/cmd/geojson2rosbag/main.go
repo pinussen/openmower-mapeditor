@@ -16,15 +16,15 @@ import (
 
 func main() {
 	inFile := flag.String("in", "", "Input GeoJSON file")
-	outFile := flag.String("out", "", "Output bag file")
+	outFile := flag.String("out", "map_new.bag", "Output bag file")
 	datumLatFlag := flag.Float64("lat", 0, "Datum latitude (optional)")
 	datumLonFlag := flag.Float64("lon", 0, "Datum longitude (optional)")
 	flag.Parse()
 
-	if *inFile == "" || *outFile == "" {
-		fmt.Println("Usage: geojson2rosbag -in map.geojson -out map.bag [-lat datum_lat -lon datum_lon]")
-		os.Exit(1)
-	}
+    if *inFile == "" {
+        fmt.Println("Usage: geojson2rosbag -in map.geojson [-out map.bag] [-lat datum_lat -lon datum_lon]")
+        os.Exit(1)
+    }
 
 	// Read GeoJSON
 	data, err := os.ReadFile(*inFile)
