@@ -83,7 +83,12 @@ def convert():
             "-in", input_geojson,
             "-out", output_bag
         ], capture_output=True, text=True)
-        
+        if result.returncode != 0:
+            return jsonify({"message": "Conversion failed", "error": result.stderr}), 500
+        return jsonify({"message": "Conversion successful!", "output": output_bag})
+    except Exception as e:
+        return jsonify({"message": "Error during conversion", "error": str(e)}), 500
+    
 if __name__ == "__main__":
     logger.info("Starting Flask server on 0.0.0.0:8089")
     # Try with explicit IPv4 binding
