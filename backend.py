@@ -73,20 +73,22 @@ def extract():
 @app.route('/convert', methods=['POST'])
 def convert():
     try:
-        # Här kan du anpassa sökvägarna till din geojson och bag-fil
-        input_geojson = "/data/map.geojson"  # eller var din fil ligger
-        output_bag = "data/converted.bag"   # eller annan plats/namn
-
-        # Kör Go-programmet
+        input_geojson = "/data/map.geojson"
+        output_bag = "/data/converted.bag"
+        logger.info(f"Running geojson2rosbag: -in {input_geojson} -out {output_bag}")
         result = subprocess.run([
             "tools/rosbag2geojson/cmd/geojson2rosbag/geojson2rosbag",
             "-in", input_geojson,
             "-out", output_bag
         ], capture_output=True, text=True)
+        logger.info(f"stdout: {result.stdout}")
+        logger.info(f"stderr: {result.stderr}")
         if result.returncode != 0:
+            logger.error(f"geojson2rosbag failed: {result.stderr}")
             return jsonify({"message": "Conversion failed", "error": result.stderr}), 500
         return jsonify({"message": "Conversion successful!", "output": output_bag})
     except Exception as e:
+        logger.error(f"Exception during conversion: {e}")
         return jsonify({"message": "Error during conversion", "error": str(e)}), 500
     
 if __name__ == "__main__":
