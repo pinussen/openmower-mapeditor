@@ -183,7 +183,7 @@ points:
 	}
 
 	if mowingAreaFile != "" {
-		cmd := exec.Command("rostopic", "pub", "-f", mowingAreaFile, "/mowing_areas", "openmower_msgs/MowingAreaList", "-1")
+		cmd := exec.Command("rostopic", "pub", "-f", mowingAreaFile, "/mowing_areas", "openmower_msgs/MowingArea", "-1")
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		log.Printf("Publishing mowing area with command: %v", cmd.Args)
