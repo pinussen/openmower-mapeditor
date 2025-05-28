@@ -55,7 +55,7 @@ def extract():
         abort(404, f"map.bag hittades inte på {BAG_PATH}")
     try:
         proc = subprocess.run(
-            ["rosbag2geojson", BAG_PATH, GEOJSON_PATH],
+            ["rosbag2geojson", "-in", BAG_PATH, "-out", GEOJSON_PATH],
             check=True,
             capture_output=True,
             text=True
