@@ -174,7 +174,6 @@ points:
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		log.Printf("Publishing docking point with command: %v", cmd.Args)
-		log.Printf("YAML file contents:\n%s", yamlContent)
 		if err := cmd.Run(); err != nil {
 			if exitErr, ok := err.(*exec.ExitError); ok {
 				log.Printf("rostopic pub stderr: %s", string(exitErr.Stderr))
