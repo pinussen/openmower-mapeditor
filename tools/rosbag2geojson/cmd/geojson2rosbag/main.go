@@ -80,22 +80,16 @@ func main() {
 			}
 			
 			// Write docking point YAML
-			yamlContent := fmt.Sprintf(`header:
-  seq: 0
-  stamp: {secs: %d, nsecs: 0}
-  frame_id: "map"
-pose:
-  position:
-    x: %f
-    y: %f
-    z: 0.0
-  orientation:
-    x: 0.0
-    y: 0.0
-    z: 0.0
-    w: 1.0
-`, time.Now().Unix(), x, y)
-			
+		        yamlContent := fmt.Sprintf(`position:
+   x: %f
+   y: %f
+   z: 0.0
+orientation:
+   x: 0.0
+   y: 0.0
+   z: 0.0
+   w: 1.0
+`, x, y)	
 			if _, err := f.WriteString(yamlContent); err != nil {
 				log.Fatal("Failed to write YAML:", err)
 			}
@@ -170,7 +164,7 @@ points:
 
 	// Publish messages
 	if dockingPointFile != "" {
-		cmd := exec.Command("rostopic", "pub", "-f", dockingPointFile, "/docking_point", "geometry_msgs/PoseStamped", "-1")
+		cmd := exec.Command("rostopic", "pub", "-f", dockingPointFile, "/docking_point", "geometry_msgs/Pose", "-1")
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		log.Printf("Publishing docking point with command: %v", cmd.Args)
@@ -183,7 +177,7 @@ points:
 	}
 
 	if mowingAreaFile != "" {
-		cmd := exec.Command("rostopic", "pub", "-f", mowingAreaFile, "/mowing_areas", "openmower_msgs/MowingArea", "-1")
+		cmd := exec.Command("rostopic", "pub", "-f", mowingAreaFile, "/mowing_areas", "mower_map/MapArea", "-1")
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		log.Printf("Publishing mowing area with command: %v", cmd.Args)
