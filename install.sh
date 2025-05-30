@@ -25,8 +25,8 @@ echo "🔨 Building rosbag2geojson tool..."
 )
 
 # Build container with host network
-echo "🏗️ Building container..."
-podman build --network=host --platform linux/arm64 -t "$CONTAINER_NAME" .
+podman pull ghcr.io/openmower/openmower-mapeditor:latest
+podman tag ghcr.io/openmower/openmower-mapeditor:latest "$CONTAINER_NAME"
 
 # Install service
 echo "🔧 Installing service..."
